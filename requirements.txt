@@ -1,0 +1,10 @@
+customtkinter
+CTkMessagebox
+CTkToolTip
+CTkColorPicker
+numpy
+Pillow
+aicsimageio
+readlif
+cellpose
+reportlab
