@@ -8,3 +8,5 @@ aicsimageio
 readlif
 cellpose
 reportlab
+scikit-image
+scipy
