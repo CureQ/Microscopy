@@ -6,18 +6,27 @@ import customtkinter as ctk
 import numpy as np
 from aicsimageio import AICSImage
 from CTkMessagebox import CTkMessagebox
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
-from scipy import ndimage
 
 from . import constants
+from .application_model import ApplicationModel
+from .image_overlay_processor import ImageOverlayProcessor
 
 
 class FileIOController:
-    def __init__(self, parent_frame):
+    def __init__(
+        self,
+        parent_frame,
+        application_model_ref: ApplicationModel,
+        display_settings_controller_ref=None,
+    ):
         self.parent_frame = parent_frame  # cell_body_frame instance
+        self.application_model = application_model_ref
+        self.display_settings_controller = display_settings_controller_ref
+        self.overlay_processor = ImageOverlayProcessor(application_model_ref)
 
     def _read_image_to_array(
         self,
@@ -41,17 +50,30 @@ class FileIOController:
                         not channels_to_load and img_aics.dims.C > 0
                     ):  # Invalid user selection, fallback
                         print(
-                            f"Warning: Invalid selected_channel_indices for {path}. Defaulting to channel 0."
+                            f"Warning: Invalid selected_channel_indices ({selected_channel_indices}) for {path}. Defaulting to channel 0."
                         )
                         channels_to_load = [0]
                 else:  # Default channel selection (primarily channel 0)
                     if img_aics.dims.C > 0:
                         channels_to_load = [0]
+                        print(
+                            f"_read_image_to_array: No channels selected by user for {path}, defaulting to channel 0."
+                        )
+                    else:
+                        print(
+                            f"_read_image_to_array: No channels available or selectable for {path}."
+                        )
 
                 if not channels_to_load:
+                    print(
+                        f"_read_image_to_array: No valid channels to load for {path} after processing selections. Available C: {img_aics.dims.C}"
+                    )
                     raise ValueError(
                         f"No valid channels to load for {path} (available C: {img_aics.dims.C})."
                     )
+                print(
+                    f"_read_image_to_array: Determined channels to load for {path}: {channels_to_load}"
+                )
 
                 # Process Z dimension for each selected channel
                 processed_channels_data = []
@@ -84,14 +106,23 @@ class FileIOController:
                             target_z_slice = max(
                                 0, min(z_idx_val, current_z_dim_size - 1)
                             )
+                            print(
+                                f"_read_image_to_array: Processing channel {c_idx}, Z-slice: {target_z_slice} (requested: {z_idx_val})"
+                            )
                             processed_c_data_for_channel = channel_data_z_stack[
                                 target_z_slice, :, :
                             ]
                         else:  # Unknown type, fallback to default Z slice
+                            print(
+                                f"_read_image_to_array: Processing channel {c_idx}, Z-slice: {default_z_index} (unknown Z type '{z_type}', fallback to default)."
+                            )
                             processed_c_data_for_channel = channel_data_z_stack[
                                 default_z_index, :, :
                             ]
                     else:  # Single Z-slice in image or no specific Z processing requested
+                        print(
+                            f"_read_image_to_array: Processing channel {c_idx}, Z-slice: {default_z_index} (single Z or no Z params)."
+                        )
                         processed_c_data_for_channel = channel_data_z_stack[
                             default_z_index, :, :
                         ]
@@ -102,24 +133,42 @@ class FileIOController:
                 num_loaded_channels = len(processed_channels_data)
                 if num_loaded_channels == 0:
                     # This case should ideally be caught by the 'if not channels_to_load' check earlier
+                    print(
+                        f"_read_image_to_array: ERROR - No channel data was processed for {path} despite earlier checks."
+                    )
                     raise ValueError(f"No channel data processed for {path}")
                 elif num_loaded_channels == 1:
                     arr = processed_channels_data[0]  # 2D array
+                    print(
+                        f"_read_image_to_array: Single channel {channels_to_load[0]} loaded for {path}."
+                    )
                 elif num_loaded_channels == 2:
                     # Combine 2 channels into a 3-channel image (e.g., C1 in Red, C2 in Green, Blue is zero)
                     ch1_data = processed_channels_data[0]
                     ch2_data = processed_channels_data[1]
                     if ch1_data.shape != ch2_data.shape:
+                        print(
+                            f"_read_image_to_array: ERROR - Shape mismatch for 2-channel stacking in {path}. Ch1: {ch1_data.shape}, Ch2: {ch2_data.shape}"
+                        )
                         raise ValueError(
                             "Shape mismatch between processed channels for 2-channel stacking."
                         )
                     zeros_channel = np.zeros_like(ch1_data, dtype=ch1_data.dtype)
                     arr = np.stack((ch1_data, ch2_data, zeros_channel), axis=-1)
+                    print(
+                        f"_read_image_to_array: Two channels {channels_to_load[:2]} loaded and stacked into RGB for {path}."
+                    )
                 elif num_loaded_channels == 3:
                     arr = np.stack(processed_channels_data, axis=-1)
+                    print(
+                        f"_read_image_to_array: Three channels {channels_to_load[:3]} loaded and stacked into RGB for {path}."
+                    )
                 else:  # >= 4 channels selected by user (or somehow loaded)
                     # Take the first 3 channels for an RGB representation
                     arr = np.stack(processed_channels_data[:3], axis=-1)
+                    print(
+                        f"_read_image_to_array: {num_loaded_channels} channels loaded for {path}, taking first 3 {channels_to_load[:3]} for RGB."
+                    )
 
             except Exception as e:
                 print(f"AICSImage failed for {path}: {e}. Falling back to PIL.")
@@ -162,9 +211,13 @@ class FileIOController:
                 raise ValueError(
                     f"Unsupported image dimensions: {arr.shape} for {path}"
                 )
+        print("arr returned")
         return arr
 
     def _prompt_channel_z_selection(self, img_dims, parent_window):
+        print(
+            f"Prompting for channel/Z selection. Image Dims C:{img_dims.C}, Z:{img_dims.Z}"
+        )
         dialog = ctk.CTkToplevel(parent_window)
         dialog.title("Image Load Options")
         dialog.transient(parent_window)
@@ -281,6 +334,9 @@ class FileIOController:
                 selected_channels_indices = [
                     i for i, var in enumerate(channel_vars) if var.get() == 1
                 ]
+                print(
+                    f"_prompt_channel_z_selection: User selected channel indices: {selected_channels_indices}"
+                )
                 if (
                     not selected_channels_indices
                 ):  # If user deselects all, default to channel 0
@@ -291,6 +347,9 @@ class FileIOController:
                         parent=dialog,
                     )
                     selected_channels_indices = [0]
+                    print(
+                        "_prompt_channel_z_selection: No channels selected by user, defaulting to [0]."
+                    )
 
                 # Warn if more than 3 selected, but allow it (backend handles it)
                 if len(selected_channels_indices) > 3:
@@ -300,10 +359,16 @@ class FileIOController:
                         icon="info",
                         parent=dialog,
                     )
+                    print(
+                        f"_prompt_channel_z_selection: User selected {len(selected_channels_indices)} channels (more than 3). Prioritizing first 3."
+                    )
 
             current_z_params = None
             if img_dims.Z > 1:
                 z_choice = z_processing_var.get()
+                print(
+                    f"_prompt_channel_z_selection: User selected Z-processing: {z_choice}"
+                )
                 if z_choice == "slice_middle":
                     current_z_params = {"type": "slice", "value": img_dims.Z // 2}
                 elif z_choice == "max_project":
@@ -313,6 +378,9 @@ class FileIOController:
                 elif z_choice == "slice_specific":
                     try:
                         slice_val = int(z_slice_entry_var.get())
+                        print(
+                            f"_prompt_channel_z_selection: User specified Z-slice: {slice_val}"
+                        )
                         if 0 <= slice_val < img_dims.Z:
                             current_z_params = {"type": "slice", "value": slice_val}
                         else:
@@ -322,6 +390,9 @@ class FileIOController:
                                 icon="cancel",
                                 parent=dialog,
                             )
+                            print(
+                                f"_prompt_channel_z_selection: Invalid Z-slice {slice_val}. Range is 0-{img_dims.Z - 1}."
+                            )
                             return
                     except ValueError:
                         CTkMessagebox(
@@ -330,18 +401,26 @@ class FileIOController:
                             icon="cancel",
                             parent=dialog,
                         )
+                        print(
+                            f"_prompt_channel_z_selection: ValueError for Z-slice input: '{z_slice_entry_var.get()}'."
+                        )
                         return
             elif img_dims.Z == 1:  # Single Z slice
                 current_z_params = {"type": "slice", "value": 0}
+                print("_prompt_channel_z_selection: Single Z-slice image, using Z=0.")
             # If img_dims.Z is 0 or less (should not happen for valid images), z_params remains None
 
             results["channels"] = selected_channels_indices
             results["z_params"] = current_z_params
             results["ok_pressed"] = True
+            print(
+                f"_prompt_channel_z_selection: OK pressed. Channels: {selected_channels_indices}, Z_params: {current_z_params}"
+            )
             dialog.destroy()
 
         def _on_cancel():
             results["ok_pressed"] = False
+            print("_prompt_channel_z_selection: Cancel pressed.")
             dialog.destroy()
 
         ok_button = ctk.CTkButton(buttons_frame, text="OK", command=_on_ok)
@@ -365,16 +444,14 @@ class FileIOController:
             filetypes=constants.MICROSCOPY_IMG_FILETYPES
         )
         if not file_path:
+            print("Load image: File dialog cancelled.")
             return
 
-        self.parent_frame.data_path = file_path
-        self.parent_frame.base_filename = os.path.splitext(os.path.basename(file_path))[
-            0
-        ]
+        print(f"Load image: File selected - {file_path}")
+        base_filename_local = os.path.splitext(os.path.basename(file_path))[0]
         if self.parent_frame.filename_label:
-            self.parent_frame.filename_label.configure(
-                text=self.parent_frame.base_filename
-            )
+            self.parent_frame.filename_label.configure(text=base_filename_local)
+            print(f"Load image: Filename label updated to {base_filename_local}")
 
         img_data_arr = None
         s_ch_indices = None
@@ -395,31 +472,47 @@ class FileIOController:
                         message=f"Could not read image metadata: {str(e)}. Attempting direct load.",
                         icon="warning",
                     )
+                    print(
+                        f"Load image: AICSImage failed to read metadata for {file_path}: {e}. Attempting direct load."
+                    )
                     # Try to load with defaults if metadata read fails
                     img_data_arr = self._read_image_to_array(file_path, None, None)
                 else:
                     if dims.C > 1 or dims.Z > 1:
+                        print(
+                            f"Load image: Multi-channel/Z-stack image ({file_path}). Prompting for selection."
+                        )
                         s_ch_indices, z_params = self._prompt_channel_z_selection(
                             dims, self.parent_frame.winfo_toplevel()
                         )
                         if (
                             s_ch_indices is None and z_params is None
                         ):  # Dialog was cancelled
+                            print(
+                                f"Load image: Channel/Z selection dialog was cancelled for {file_path}."
+                            )
                             return
                     else:  # Single channel, single Z, or no dialog needed
                         s_ch_indices = [0] if dims.C > 0 else []
                         z_params = (
                             {"type": "slice", "value": 0} if dims.Z > 0 else None
                         )  # Default z_params for single Z or no Z
+                        print(
+                            f"Load image: Single channel/Z-slice image or no selection needed for {file_path}. Using C:{s_ch_indices}, Z:{z_params}"
+                        )
 
                     if (
                         s_ch_indices is not None
                     ):  # Proceed if not cancelled (even if defaults were set without dialog)
+                        print(
+                            f"Load image: Reading image data for {file_path} with C:{s_ch_indices}, Z:{z_params}"
+                        )
                         img_data_arr = self._read_image_to_array(
                             file_path, s_ch_indices, z_params
                         )
 
             else:  # For other image types
+                print(f"Load image: Reading standard image type {file_path}.")
                 img_data_arr = self._read_image_to_array(file_path, None, None)
 
             if img_data_arr is None or img_data_arr.size == 0:
@@ -431,7 +524,13 @@ class FileIOController:
                 ):
                     # This means dialog was cancelled, and we already returned, so this path shouldn't be hit often.
                     # But as a safeguard if logic changes.
+                    print(
+                        f"Load image: Image loading cancelled or failed for {file_path} (dialog related)."
+                    )
                     return
+                print(
+                    f"Load image: Failed to read image or image is empty for {file_path} after selection/processing."
+                )
                 raise ValueError(
                     "Failed to read image or image is empty after selection/processing."
                 )
@@ -441,50 +540,51 @@ class FileIOController:
                 if not isinstance(img_data_arr, Image.Image)
                 else img_data_arr
             )
-
-            self.parent_frame.image_view_model.reset_for_new_image()
-            self.parent_frame.image_view_model.set_image_data(pil_image)
-            self.parent_frame.history_controller.reset_history()
-
-            # Call the finalization method on the parent_frame
-            self.parent_frame.image_canvas.after(
-                50, self.parent_frame._finalize_image_load_and_pan_reset
+            print(f"Loading image: {file_path} into ApplicationModel.")
+            self.application_model.load_new_image(
+                pil_image, file_path, base_filename_local
             )
 
         except Exception as e:
+            print(f"Load image: Exception occurred while loading {file_path}: {str(e)}")
             CTkMessagebox(
                 title=constants.MSG_ERROR_LOADING_IMAGE_TITLE,
                 message=str(e),
                 icon="cancel",
             )
-            self.parent_frame.image_view_model.reset_for_new_image()
+            self.application_model.image_data.reset()
+            self.application_model.current_file_path = None
+            self.application_model.base_filename = None
+            self.application_model.notify_observers("image_load_failed")
+
             if self.parent_frame.segment_button:
                 self.parent_frame.segment_button.configure(state="disabled")
-            self.parent_frame.update_display()
 
     def export_selected(self):
-        if self.parent_frame.image_view_model.mask_array is None:
+        if self.application_model.image_data.mask_array is None:
             CTkMessagebox(
                 title=constants.MSG_EXPORT_ERROR_TITLE,
                 message=constants.MSG_EXPORT_NO_MASK,
                 icon="cancel",
             )
+            print("Export selected cells: No mask array found.")
             return
 
         export_mask = np.zeros_like(
-            self.parent_frame.image_view_model.mask_array,
-            dtype=self.parent_frame.image_view_model.mask_array.dtype,
+            self.application_model.image_data.mask_array,
+            dtype=self.application_model.image_data.mask_array.dtype,
         )
-        for cid in self.parent_frame.image_view_model.included_cells:
-            export_mask[self.parent_frame.image_view_model.mask_array == cid] = cid
+        for cid in self.application_model.image_data.included_cells:
+            export_mask[self.application_model.image_data.mask_array == cid] = cid
 
         save_path = filedialog.asksaveasfilename(
-            initialfile=f"{self.parent_frame.base_filename}{constants.PDF_SELECTED_CELLS_FILENAME_PREFIX}",
+            initialfile=f"{self.application_model.base_filename}{constants.PDF_SELECTED_CELLS_FILENAME_PREFIX}",
             defaultextension=".tif",
             filetypes=constants.EXPORT_FILETYPES_TIF_NUMPY,
         )
         if save_path:
             try:
+                print(f"Export selected cells: Saving to {save_path}")
                 if save_path.endswith(".npy"):
                     np.save(save_path, export_mask)
                 else:
@@ -494,64 +594,112 @@ class FileIOController:
                     message=constants.MSG_EXPORT_COMPLETED,
                     icon="check",
                 )
+                print("Export selected cells: Success.")
             except Exception as e:
                 CTkMessagebox(
                     title=constants.MSG_EXPORT_ERROR_TITLE,
                     message=constants.MSG_EXPORT_FAILED.format(error=str(e)),
                     icon="cancel",
                 )
+                print(f"Export selected cells: Failed - {str(e)}")
+        else:
+            print("Export selected cells: Save dialog cancelled.")
 
     def export_pdf(self):
-        if self.parent_frame.image_view_model.original_image is None:
+        if self.application_model.image_data.original_image is None:
             CTkMessagebox(
                 title=constants.MSG_PDF_EXPORT_ERROR_TITLE,
                 message=constants.MSG_PDF_ORIGINAL_IMAGE_MISSING,
                 icon="cancel",
             )
+            print("Export PDF: Original image missing.")
             return
 
         save_path = filedialog.asksaveasfilename(
-            initialfile=f"{self.parent_frame.base_filename}{constants.PDF_DEFAULT_FILENAME_PREFIX}",
+            initialfile=f"{self.application_model.base_filename}{constants.PDF_DEFAULT_FILENAME_PREFIX}",
             defaultextension=".pdf",
             filetypes=constants.EXPORT_FILETYPES_PDF,
         )
         if not save_path:
+            print("Export PDF: Save dialog cancelled.")
             return
 
+        print(f"Export PDF: Starting PDF export to {save_path}")
         TARGET_DPI = constants.PDF_TARGET_DPI
 
         try:
-            c = canvas.Canvas(save_path, pagesize=A4)
-            width_pdf, height_pdf = A4
-            margin = constants.PDF_MARGIN
-            content_width = width_pdf - 2 * margin
-            content_height = height_pdf - 2 * margin
-            line_height = constants.PDF_LINE_HEIGHT
+            img_original_pil = self.application_model.image_data.original_image
+            mask_array = self.application_model.image_data.mask_array
 
-            c.setFont(constants.PDF_FONT_TITLE, constants.PDF_FONT_TITLE_SIZE)
-            c.drawString(margin, height_pdf - margin, "Cell Segmentation Report")
+            all_cell_ids_in_mask = (
+                np.unique(mask_array[mask_array > 0])
+                if mask_array is not None
+                else np.array([])
+            )
+            selected_cell_ids_set = self.application_model.image_data.included_cells
 
-            y_pos_stats = height_pdf - margin - constants.PDF_STATS_TOP_OFFSET
-            details = [
-                f"Source File: {self.parent_frame.base_filename}",
-                f"Diameter parameter (gui): {self.parent_frame.dia_entry.get() if self.parent_frame.dia_entry else 'N/A'}",
-                f"Detected cells: {len(np.unique(self.parent_frame.image_view_model.mask_array)) - 1 if self.parent_frame.image_view_model.mask_array is not None and self.parent_frame.image_view_model.mask_array.size > 0 else 0}",
-                f"Selected cells: {len(self.parent_frame.image_view_model.included_cells)}",
-            ]
-            c.setFont(constants.PDF_FONT_BODY, constants.PDF_FONT_BODY_SIZE)
-            for detail in details:
-                c.drawString(margin, y_pos_stats, detail)
-                y_pos_stats -= line_height
+            selected_cell_ids = list(selected_cell_ids_set)
+            deselected_cell_ids = list(
+                set(all_cell_ids_in_mask) - selected_cell_ids_set
+            )
 
-            img_title_space = line_height * constants.PDF_TITLE_IMAGE_GAP_FACTOR
-            max_img_height_page1 = y_pos_stats - margin - img_title_space
-            max_img_width_page1 = content_width
+            # PDF setup
+            pdf_canvas = canvas.Canvas(save_path, pagesize=A4)
+            width, height = A4  # Page dimensions
 
-            if self.parent_frame.image_view_model.original_image:
-                orig_img_pil_page1 = (
-                    self.parent_frame.image_view_model.original_image.copy()
+            # --- Get the base image for PDF (potentially processed) ---
+            current_original_image_pil = (
+                self.application_model.get_processed_image_for_display()
+            )
+
+            if current_original_image_pil is None:  # Fallback to true original
+                current_original_image_pil = (
+                    self.application_model.image_data.original_image
                 )
-                orig_pix_w, orig_pix_h = orig_img_pil_page1.size
+
+            # Check if the (potentially processed) original image is available, especially if it's requested for the PDF
+            if (
+                current_original_image_pil is None
+                and self.parent_frame.pdf_opt_include_original_image.get()
+            ):
+                CTkMessagebox(
+                    title=constants.MSG_PDF_EXPORT_ERROR_TITLE,
+                    message=constants.MSG_PDF_ORIGINAL_IMAGE_MISSING,
+                    icon="warning",
+                )
+                print(
+                    "Export PDF: Original image (current_original_image_pil) is missing but was requested for PDF."
+                )
+                # Not returning here, to allow other PDF parts if possible
+
+            # Title
+            pdf_canvas.setFont(constants.PDF_FONT_TITLE, constants.PDF_FONT_TITLE_SIZE)
+            pdf_canvas.drawString(
+                constants.PDF_MARGIN,
+                height - constants.PDF_MARGIN,
+                "Cell Segmentation Report",
+            )
+
+            y_pos_stats = height - constants.PDF_MARGIN - constants.PDF_STATS_TOP_OFFSET
+            details = [
+                f"Source File: {self.application_model.base_filename}",
+                f"Diameter parameter (gui): {self.parent_frame.dia_entry.get() if self.parent_frame.dia_entry else 'N/A'}",
+                f"Detected cells: {len(np.unique(self.application_model.image_data.mask_array)) - 1 if self.application_model.image_data.mask_array is not None and self.application_model.image_data.mask_array.size > 0 else 0}",
+                f"Selected cells: {len(self.application_model.image_data.included_cells)}",
+            ]
+            pdf_canvas.setFont(constants.PDF_FONT_BODY, constants.PDF_FONT_BODY_SIZE)
+            for detail in details:
+                pdf_canvas.drawString(constants.PDF_MARGIN, y_pos_stats, detail)
+                y_pos_stats -= constants.PDF_LINE_HEIGHT
+
+            img_title_space = (
+                constants.PDF_LINE_HEIGHT * constants.PDF_TITLE_IMAGE_GAP_FACTOR
+            )
+            max_img_height_page1 = y_pos_stats - constants.PDF_MARGIN - img_title_space
+            max_img_width_page1 = width - 2 * constants.PDF_MARGIN
+
+            if current_original_image_pil:
+                orig_pix_w, orig_pix_h = current_original_image_pil.size
 
                 aspect_ratio = orig_pix_w / orig_pix_h if orig_pix_h > 0 else 1
                 pdf_w_pts, pdf_h_pts = 0, 0
@@ -566,7 +714,7 @@ class FileIOController:
                 render_pix_h = int(pdf_h_pts * TARGET_DPI / 72.0)
 
                 if render_pix_w > 0 and render_pix_h > 0:
-                    resized_img_page1 = orig_img_pil_page1.resize(
+                    resized_img_page1 = current_original_image_pil.resize(
                         (render_pix_w, render_pix_h), Image.LANCZOS
                     )
                     orig_buf = io.BytesIO()
@@ -577,122 +725,259 @@ class FileIOController:
                     )
                     orig_buf.seek(0)
 
-                    img_x_page1 = margin + (content_width - pdf_w_pts) / 2
+                    # Corrected X coordinate for centering within content area
+                    content_area_width = width - 2 * constants.PDF_MARGIN
+                    img_x_page1 = (
+                        constants.PDF_MARGIN + (content_area_width - pdf_w_pts) / 2
+                    )
                     img_y_page1 = y_pos_stats - pdf_h_pts - img_title_space
 
-                    c.drawImage(
+                    pdf_canvas.drawImage(
                         ImageReader(orig_buf),
                         img_x_page1,
                         img_y_page1,
                         width=pdf_w_pts,
                         height=pdf_h_pts,
                     )
-                    c.setFont(
+                    pdf_canvas.setFont(
                         constants.PDF_FONT_BODY, constants.PDF_FONT_SUBHEADER_SIZE
                     )
-                    c.drawCentredString(
-                        margin + content_width / 2,
-                        img_y_page1 - line_height,
+                    pdf_canvas.drawCentredString(
+                        width / 2,
+                        img_y_page1 - constants.PDF_LINE_HEIGHT,
                         "Original Image",
                     )
-            c.showPage()
+            pdf_canvas.showPage()
 
             images_to_export = []
-            selected_cell_ids = self.parent_frame.image_view_model.included_cells.copy()
+            selected_cell_ids = self.application_model.image_data.included_cells.copy()
 
             if (
-                self.parent_frame.image_view_model.mask_array is None
-                or self.parent_frame.image_view_model.mask_array.size == 0
+                self.application_model.image_data.mask_array is None
+                or self.application_model.image_data.mask_array.size == 0
             ):
                 any_overlay_option_selected = (
-                    self.parent_frame.pdf_opt_masks_only.get()
-                    or self.parent_frame.pdf_opt_boundaries_only.get()
-                    or self.parent_frame.pdf_opt_numbers_only.get()
-                    or self.parent_frame.pdf_opt_masks_boundaries.get()
-                    or self.parent_frame.pdf_opt_masks_numbers.get()
-                    or self.parent_frame.pdf_opt_boundaries_numbers.get()
-                    or self.parent_frame.pdf_opt_masks_boundaries_numbers.get()
+                    self.application_model.display_state.pdf_opt_masks_only
+                    or self.application_model.display_state.pdf_opt_boundaries_only
+                    or self.application_model.display_state.pdf_opt_numbers_only
+                    or self.application_model.display_state.pdf_opt_masks_boundaries
+                    or self.application_model.display_state.pdf_opt_masks_numbers
+                    or self.application_model.display_state.pdf_opt_boundaries_numbers
+                    or self.application_model.display_state.pdf_opt_masks_boundaries_numbers
                 )
                 if any_overlay_option_selected:
-                    c.setFont("Helvetica", 12)
-                    c.drawCentredString(
-                        width_pdf / 2,
-                        height_pdf / 2,
+                    pdf_canvas.setFont(
+                        constants.PDF_FONT_BODY, constants.PDF_FONT_BODY_SIZE
+                    )
+                    pdf_canvas.drawCentredString(
+                        width / 2,
+                        height / 2,
                         "Overlay images selected for PDF,",
                     )
-                    c.drawCentredString(
-                        width_pdf / 2,
-                        height_pdf / 2 - line_height,
+                    pdf_canvas.drawCentredString(
+                        width / 2,
+                        height / 2 - constants.PDF_LINE_HEIGHT,
                         "but no cell segmentation data is available.",
                     )
-                    c.showPage()
+                    pdf_canvas.showPage()
             else:
-                base_img_for_overlays = (
-                    self.parent_frame.image_view_model.original_image.copy().convert(
-                        "RGB"
+                # --- Image for Masks/Boundaries/Numbers Page ---
+                # This will be the base onto which we draw masks, boundaries, numbers for the next page.
+                # It should be the same (potentially processed) original image fetched earlier.
+                page_base_image_pil = None
+                if (
+                    current_original_image_pil
+                ):  # Use the already fetched (and potentially processed) image
+                    page_base_image_pil = current_original_image_pil.copy()
+                # If current_original_image_pil was None, page_base_image_pil will also be None.
+                # The drawing functions _draw_masks_on_pil, etc., will need to handle a None base_pil_image gracefully
+                # (e.g., by not drawing or drawing on a black placeholder if they create one).
+
+                # Combined Image: Masks, Boundaries, Numbers (as selected)
+                # Only create this page if there's something to draw (opt_masks, etc. are true)
+                # AND if we have some base image to draw upon (page_base_image_pil is not None).
+                # The first showPage() after the original image page has already prepared a new blank page.
+                if page_base_image_pil and (
+                    self.application_model.display_state.pdf_opt_masks_only
+                    or self.application_model.display_state.pdf_opt_boundaries_only
+                    or self.application_model.display_state.pdf_opt_numbers_only
+                    or self.application_model.display_state.pdf_opt_masks_boundaries
+                    or self.application_model.display_state.pdf_opt_masks_numbers
+                    or self.application_model.display_state.pdf_opt_boundaries_numbers
+                    or self.application_model.display_state.pdf_opt_masks_boundaries_numbers
+                ):
+                    y_coord = (
+                        height - constants.PDF_MARGIN - constants.PDF_LINE_HEIGHT
+                    )  # Reset y_coord for new page (which is current page)
+                    pdf_canvas.setFont(
+                        constants.PDF_FONT_BODY, constants.PDF_FONT_SUBHEADER_SIZE
                     )
-                )
-
-                if self.parent_frame.pdf_opt_masks_only.get():
-                    img = self._draw_masks_on_pil(
-                        base_img_for_overlays.copy(), selected_cell_ids
+                    pdf_canvas.drawString(
+                        constants.PDF_MARGIN, y_coord, "Overlay Images"
                     )
-                    if img:
-                        images_to_export.append(("Cell Masks Only", img))
-
-                if self.parent_frame.pdf_opt_boundaries_only.get():
-                    img = self._draw_boundaries_on_pil(
-                        base_img_for_overlays.copy(), selected_cell_ids
+                    y_coord -= (
+                        constants.PDF_LINE_HEIGHT * constants.PDF_IMAGE_GAP_ABOVE_FACTOR
                     )
-                    if img:
-                        images_to_export.append(("Cell Boundaries Only", img))
 
-                if self.parent_frame.pdf_opt_numbers_only.get():
-                    img = self._draw_numbers_on_pil(
-                        base_img_for_overlays.copy(), selected_cell_ids
+                    # Determine which cells to include based on "Show Deselected Masks Only"
+                    # This logic will be encapsulated or passed to the overlay processor methods if they need it.
+                    # For PDF, we generally want to show what the user *selected* for export,
+                    # which is `selected_cell_ids` (all included_cells from the model).
+                    # If a PDF option is to show *only deselected*, that would be a separate explicit flag.
+
+                    ids_for_pdf_overlay = (
+                        selected_cell_ids  # Use the selected cells for PDF overlays
                     )
-                    if img:
-                        images_to_export.append(("Cell Numbers Only", img))
 
-                if self.parent_frame.pdf_opt_masks_boundaries.get():
-                    img = base_img_for_overlays.copy()
-                    img = self._draw_masks_on_pil(img, selected_cell_ids)
-                    img = self._draw_boundaries_on_pil(img, selected_cell_ids)
-                    if img:
-                        images_to_export.append(("Masks & Boundaries", img))
+                    if self.application_model.display_state.pdf_opt_masks_only:
+                        # Create a pristine copy of the page base for this specific export item
+                        current_export_item_img = page_base_image_pil.copy()
+                        mask_layer = self.overlay_processor.draw_masks_on_pil(
+                            current_export_item_img,  # For size context
+                            ids_for_pdf_overlay,
+                        )
+                        img = self.overlay_processor.blend_image_with_mask_layer(
+                            current_export_item_img,
+                            mask_layer,
+                            constants.MASK_BLEND_ALPHA,
+                        )
+                        if img:
+                            images_to_export.append(("Cell Masks Only", img))
 
-                if self.parent_frame.pdf_opt_masks_numbers.get():
-                    img = base_img_for_overlays.copy()
-                    img = self._draw_masks_on_pil(img, selected_cell_ids)
-                    img = self._draw_numbers_on_pil(img, selected_cell_ids)
-                    if img:
-                        images_to_export.append(("Masks & Numbers", img))
+                    if self.application_model.display_state.pdf_opt_boundaries_only:
+                        # Create a pristine copy of the page base
+                        current_export_item_img = page_base_image_pil.copy()
+                        img = self.overlay_processor.draw_boundaries_on_pil(
+                            current_export_item_img, ids_for_pdf_overlay
+                        )
+                        if img:
+                            images_to_export.append(("Cell Boundaries Only", img))
 
-                if self.parent_frame.pdf_opt_boundaries_numbers.get():
-                    img = base_img_for_overlays.copy()
-                    img = self._draw_boundaries_on_pil(img, selected_cell_ids)
-                    img = self._draw_numbers_on_pil(img, selected_cell_ids)
-                    if img:
-                        images_to_export.append(("Boundaries & Numbers", img))
+                    if self.application_model.display_state.pdf_opt_numbers_only:
+                        current_export_item_img = page_base_image_pil.copy()
+                        img = self.overlay_processor.draw_numbers_on_pil(
+                            current_export_item_img,
+                            ids_for_pdf_overlay,
+                            font_size=constants.CELL_NUMBERING_FONT_SIZE_PDF,
+                        )
+                        if img:
+                            images_to_export.append(("Cell Numbers Only", img))
 
-                if self.parent_frame.pdf_opt_masks_boundaries_numbers.get():
-                    img = base_img_for_overlays.copy()
-                    img = self._draw_masks_on_pil(img, selected_cell_ids)
-                    img = self._draw_boundaries_on_pil(img, selected_cell_ids)
-                    img = self._draw_numbers_on_pil(img, selected_cell_ids)
-                    if img:
-                        images_to_export.append(("Masks, Boundaries & Numbers", img))
+                    if self.application_model.display_state.pdf_opt_masks_boundaries:
+                        current_export_item_img = page_base_image_pil.copy()
+                        # Apply Masks first by getting layer and blending
+                        mask_layer = self.overlay_processor.draw_masks_on_pil(
+                            current_export_item_img, ids_for_pdf_overlay
+                        )
+                        current_export_item_img = (
+                            self.overlay_processor.blend_image_with_mask_layer(
+                                current_export_item_img,
+                                mask_layer,
+                                constants.MASK_BLEND_ALPHA,
+                            )
+                        )
+                        # Then apply boundaries to the already mask-blended image
+                        current_export_item_img = (
+                            self.overlay_processor.draw_boundaries_on_pil(
+                                current_export_item_img, ids_for_pdf_overlay
+                            )
+                        )
+                        if current_export_item_img:
+                            images_to_export.append(
+                                ("Masks & Boundaries", current_export_item_img)
+                            )
+
+                    if self.application_model.display_state.pdf_opt_masks_numbers:
+                        current_export_item_img = page_base_image_pil.copy()
+                        # Apply Masks
+                        mask_layer = self.overlay_processor.draw_masks_on_pil(
+                            current_export_item_img, ids_for_pdf_overlay
+                        )
+                        current_export_item_img = (
+                            self.overlay_processor.blend_image_with_mask_layer(
+                                current_export_item_img,
+                                mask_layer,
+                                constants.MASK_BLEND_ALPHA,
+                            )
+                        )
+                        # Apply Numbers
+                        current_export_item_img = (
+                            self.overlay_processor.draw_numbers_on_pil(
+                                current_export_item_img,
+                                ids_for_pdf_overlay,
+                                font_size=constants.CELL_NUMBERING_FONT_SIZE_PDF,
+                            )
+                        )
+                        if current_export_item_img:
+                            images_to_export.append(
+                                ("Masks & Numbers", current_export_item_img)
+                            )
+
+                    if self.application_model.display_state.pdf_opt_boundaries_numbers:
+                        current_export_item_img = page_base_image_pil.copy()
+                        # Apply Boundaries
+                        current_export_item_img = (
+                            self.overlay_processor.draw_boundaries_on_pil(
+                                current_export_item_img, ids_for_pdf_overlay
+                            )
+                        )
+                        # Apply Numbers
+                        current_export_item_img = (
+                            self.overlay_processor.draw_numbers_on_pil(
+                                current_export_item_img,
+                                ids_for_pdf_overlay,
+                                font_size=constants.CELL_NUMBERING_FONT_SIZE_PDF,
+                            )
+                        )
+                        if current_export_item_img:
+                            images_to_export.append(
+                                ("Boundaries & Numbers", current_export_item_img)
+                            )
+
+                    if self.application_model.display_state.pdf_opt_masks_boundaries_numbers:
+                        current_export_item_img = page_base_image_pil.copy()
+                        # Apply Masks
+                        mask_layer = self.overlay_processor.draw_masks_on_pil(
+                            current_export_item_img, ids_for_pdf_overlay
+                        )
+                        current_export_item_img = (
+                            self.overlay_processor.blend_image_with_mask_layer(
+                                current_export_item_img,
+                                mask_layer,
+                                constants.MASK_BLEND_ALPHA,
+                            )
+                        )
+                        # Apply Boundaries
+                        current_export_item_img = (
+                            self.overlay_processor.draw_boundaries_on_pil(
+                                current_export_item_img, ids_for_pdf_overlay
+                            )
+                        )
+                        # Apply Numbers
+                        current_export_item_img = (
+                            self.overlay_processor.draw_numbers_on_pil(
+                                current_export_item_img,
+                                ids_for_pdf_overlay,
+                                font_size=constants.CELL_NUMBERING_FONT_SIZE_PDF,
+                            )
+                        )
+                        if current_export_item_img:
+                            images_to_export.append(
+                                ("Masks, Boundaries & Numbers", current_export_item_img)
+                            )
 
             num_images_to_export = len(images_to_export)
             img_idx = 0
             while img_idx < num_images_to_export:
-                c.setFont(constants.PDF_FONT_BODY, constants.PDF_FONT_SUBHEADER_SIZE)
+                pdf_canvas.setFont(
+                    constants.PDF_FONT_BODY, constants.PDF_FONT_SUBHEADER_SIZE
+                )
                 title, pil_img = images_to_export[img_idx]
                 reserved_space_for_title_and_gap = (
-                    line_height * constants.PDF_TITLE_IMAGE_GAP_FACTOR
+                    constants.PDF_LINE_HEIGHT * constants.PDF_IMAGE_GAP_ABOVE_FACTOR
                 )
-                max_img_h_on_page = content_height - reserved_space_for_title_and_gap
-                max_img_w_on_page = content_width
+                max_img_h_on_page = height - reserved_space_for_title_and_gap
+                max_img_w_on_page = width - 2 * constants.PDF_MARGIN
                 img_w_orig_pixels, img_h_orig_pixels = pil_img.size
                 aspect_ratio_overlay = (
                     img_w_orig_pixels / img_h_orig_pixels
@@ -725,351 +1010,181 @@ class FileIOController:
                     block_total_height = (
                         pdf_h_pts_overlay + reserved_space_for_title_and_gap
                     )
-                    draw_y_image = margin + (content_height - block_total_height) / 2
-                    draw_x_image = margin + (content_width - pdf_w_pts_overlay) / 2
-                    gap_above_image = line_height * constants.PDF_IMAGE_GAP_ABOVE_FACTOR
+                    # Corrected X coordinate for centering within content area
+                    content_area_width_overlay = (
+                        width - 2 * constants.PDF_MARGIN
+                    )  # Same as content_area_width
+                    draw_x_image = (
+                        constants.PDF_MARGIN
+                        + (content_area_width_overlay - pdf_w_pts_overlay) / 2
+                    )
+                    # Y position calculation needs to ensure it's vertically centered too if desired, or placed consistently.
+                    draw_y_image = (
+                        constants.PDF_MARGIN + (height - block_total_height) / 2
+                    )
+                    gap_above_image = (
+                        constants.PDF_LINE_HEIGHT * constants.PDF_IMAGE_GAP_ABOVE_FACTOR
+                    )
                     title_baseline_y = (
                         draw_y_image + pdf_h_pts_overlay + gap_above_image
                     )
-                    c.drawImage(
+                    pdf_canvas.drawImage(
                         ImageReader(buf),
                         draw_x_image,
                         draw_y_image,
                         width=pdf_w_pts_overlay,
                         height=pdf_h_pts_overlay,
                     )
-                    c.drawCentredString(width_pdf / 2, title_baseline_y, title)
+                    pdf_canvas.drawCentredString(width / 2, title_baseline_y, title)
                 else:
-                    c.drawCentredString(
-                        width_pdf / 2, height_pdf / 2, f"Error rendering: {title}"
+                    pdf_canvas.drawCentredString(
+                        width / 2, height / 2, f"Error rendering: {title}"
                     )
                 img_idx += 1
-                c.showPage()
-            c.save()
+                pdf_canvas.showPage()
+            pdf_canvas.save()
             CTkMessagebox(
                 title=constants.MSG_EXPORT_SUCCESS_TITLE,
                 message=constants.MSG_PDF_EXPORTED_SUCCESS,
                 icon="check",
             )
+            print("Export PDF: Successfully exported.")
         except Exception as e:
             CTkMessagebox(
                 title=constants.MSG_PDF_EXPORT_ERROR_TITLE,
                 message=constants.MSG_PDF_EXPORT_FAILED.format(error=str(e)),
                 icon="cancel",
             )
-
-    def _draw_masks_on_pil(self, base_pil_image, cell_ids_to_draw):
-        if (
-            self.parent_frame.image_view_model.mask_array is None
-            or not cell_ids_to_draw
-        ):
-            return base_pil_image
-
-        mask_overlay_rgb_pil = Image.new(
-            "RGB", base_pil_image.size, constants.COLOR_BLACK_STR
-        )
-        rng = np.random.default_rng(seed=constants.RANDOM_SEED_MASKS)
-        all_unique_mask_ids = np.unique(self.parent_frame.image_view_model.mask_array)
-        color_map = {
-            uid: tuple(rng.integers(50, 200, size=3))
-            for uid in all_unique_mask_ids
-            if uid != 0
-        }
-        temp_mask_np = np.zeros(
-            (*self.parent_frame.image_view_model.mask_array.shape, 3), dtype=np.uint8
-        )
-        any_mask_drawn = False
-        for cell_id_val in cell_ids_to_draw:
-            if cell_id_val != 0 and cell_id_val in color_map:
-                mask_pixels = (
-                    self.parent_frame.image_view_model.mask_array == cell_id_val
-                )
-                if np.any(mask_pixels):
-                    temp_mask_np[mask_pixels] = color_map[cell_id_val]
-                    any_mask_drawn = True
-        if not any_mask_drawn:
-            return base_pil_image
-        mask_overlay_rgb_pil = Image.fromarray(temp_mask_np)
-        if base_pil_image.mode != "RGB":
-            base_pil_image = base_pil_image.convert("RGB")
-        blended_image = Image.blend(
-            base_pil_image, mask_overlay_rgb_pil, alpha=constants.MASK_BLEND_ALPHA
-        )
-        return blended_image
-
-    def _draw_boundaries_on_pil(self, base_pil_image, cell_ids_to_draw):
-        if (
-            self.parent_frame.image_view_model.mask_array is None
-            or not cell_ids_to_draw
-        ):
-            return base_pil_image
-
-        current_mask_array = self.parent_frame.image_view_model.mask_array
-        # Access _get_exact_boundaries via parent_frame
-        exact_boundaries = self.parent_frame._get_exact_boundaries(current_mask_array)
-
-        if exact_boundaries.size == 0:
-            return base_pil_image
-
-        boundary_to_draw_on_pdf = np.zeros_like(exact_boundaries, dtype=bool)
-        any_boundary_drawn = False
-        for cid in cell_ids_to_draw:
-            if cid != 0:
-                cell_mask_region = current_mask_array == cid
-                if np.any(cell_mask_region):
-                    boundary_to_draw_on_pdf |= exact_boundaries & cell_mask_region
-                    any_boundary_drawn = True
-        if not any_boundary_drawn:
-            return base_pil_image
-        output_image_np = np.array(base_pil_image.convert("RGB"))
-        boundary_color_map_pil = constants.BOUNDARY_COLOR_MAP_PIL
-        gui_boundary_color_name = self.parent_frame.boundary_color.get()
-        chosen_color_np = np.array(
-            boundary_color_map_pil.get(
-                gui_boundary_color_name, constants.BOUNDARY_COLOR_MAP_PIL["Green"]
-            )
-        )
-        if boundary_to_draw_on_pdf.shape == output_image_np.shape[:2]:
-            output_image_np[boundary_to_draw_on_pdf] = chosen_color_np
-        else:
-            print(
-                f"Warning: Shape mismatch for PDF boundary drawing. Base: {output_image_np.shape[:2]}, Boundary: {boundary_to_draw_on_pdf.shape}"
-            )
-            return base_pil_image
-        return Image.fromarray(output_image_np)
-
-    def _draw_numbers_on_pil(self, base_pil_image, cell_ids_to_draw):
-        if (
-            self.parent_frame.image_view_model.mask_array is None
-            or not cell_ids_to_draw
-            or self.parent_frame.image_view_model.original_image is None
-        ):
-            return base_pil_image
-
-        draw_on_pil = ImageDraw.Draw(base_pil_image)
-        current_boundary_color_name = self.parent_frame.boundary_color.get()
-        boundary_color_map_text = constants.PDF_TEXT_NUMBER_COLOR_MAP
-        text_color_tuple = boundary_color_map_text.get(
-            current_boundary_color_name, constants.PDF_TEXT_NUMBER_COLOR_MAP["Green"]
-        )
-        base_font_size = constants.CELL_NUMBERING_FONT_SIZE_PDF
-        try:
-            font = ImageFont.truetype(constants.DEFAULT_FONT_BOLD, size=base_font_size)
-        except IOError:
-            try:
-                font = ImageFont.truetype(constants.DEFAULT_FONT, size=base_font_size)
-            except IOError:
-                font = ImageFont.load_default()
-
-        cell_info_for_sorting_pdf = []
-        img_h_orig, img_w_orig = (
-            self.parent_frame.image_view_model.original_image.height,
-            self.parent_frame.image_view_model.original_image.width,
-        )
-        current_mask_array = self.parent_frame.image_view_model.mask_array
-        num_drawn_actually = 0
-
-        for cell_id_val in cell_ids_to_draw:
-            if cell_id_val != 0:
-                single_cell_mask = current_mask_array == cell_id_val
-                if np.any(single_cell_mask):
-                    rows, cols = np.where(single_cell_mask)
-                    top_most = np.min(rows)
-                    left_most_in_top_row = np.min(cols[rows == top_most])
-                    cell_boundary_margin = constants.CELL_CENTER_FIND_MARGIN
-                    eroded_mask = ndimage.binary_erosion(
-                        single_cell_mask,
-                        iterations=cell_boundary_margin,
-                        border_value=0,
-                    )
-                    chosen_cx, chosen_cy = -1.0, -1.0
-                    if np.any(eroded_mask):
-                        cy_eroded_com, cx_eroded_com = ndimage.center_of_mass(
-                            eroded_mask
-                        )
-                        cy_eroded_idx, cx_eroded_idx = (
-                            int(round(cy_eroded_com)),
-                            int(round(cx_eroded_com)),
-                        )
-                        if (
-                            0 <= cy_eroded_idx < eroded_mask.shape[0]
-                            and 0 <= cx_eroded_idx < eroded_mask.shape[1]
-                            and eroded_mask[cy_eroded_idx, cx_eroded_idx]
-                        ):
-                            chosen_cx, chosen_cy = cx_eroded_com, cy_eroded_com
-                        else:
-                            dist_transform_eroded = ndimage.distance_transform_edt(
-                                eroded_mask
-                            )
-                            if np.any(dist_transform_eroded):
-                                pole_y_eroded, pole_x_eroded = np.unravel_index(
-                                    np.argmax(dist_transform_eroded),
-                                    dist_transform_eroded.shape,
-                                )
-                                chosen_cx, chosen_cy = (
-                                    float(pole_x_eroded),
-                                    float(pole_y_eroded),
-                                )
-                            else:
-                                cy_orig_com_fb, cx_orig_com_fb = ndimage.center_of_mass(
-                                    single_cell_mask
-                                )
-                                chosen_cx, chosen_cy = cx_orig_com_fb, cy_orig_com_fb
-                    else:
-                        cy_orig_com, cx_orig_com = ndimage.center_of_mass(
-                            single_cell_mask
-                        )
-                        cy_idx, cx_idx = (
-                            int(round(cy_orig_com)),
-                            int(round(cx_orig_com)),
-                        )
-                        if (
-                            0 <= cy_idx < single_cell_mask.shape[0]
-                            and 0 <= cx_idx < single_cell_mask.shape[1]
-                            and single_cell_mask[cy_idx, cx_idx]
-                        ):
-                            chosen_cx, chosen_cy = cx_orig_com, cy_orig_com
-                        else:
-                            dist_transform_orig = ndimage.distance_transform_edt(
-                                single_cell_mask
-                            )
-                            if np.any(dist_transform_orig):
-                                pole_y_orig, pole_x_orig = np.unravel_index(
-                                    np.argmax(dist_transform_orig),
-                                    dist_transform_orig.shape,
-                                )
-                                chosen_cx, chosen_cy = (
-                                    float(pole_x_orig),
-                                    float(pole_y_orig),
-                                )
-                            else:
-                                continue
-                    final_cx_orig = max(0, min(chosen_cx, img_w_orig - 1))
-                    final_cy_orig = max(0, min(chosen_cy, img_h_orig - 1))
-                    cell_info_for_sorting_pdf.append(
-                        {
-                            "id": cell_id_val,
-                            "top": top_most,
-                            "left": left_most_in_top_row,
-                            "center_orig_x": final_cx_orig,
-                            "center_orig_y": final_cy_orig,
-                        }
-                    )
-        if not cell_info_for_sorting_pdf:
-            return base_pil_image
-        sorted_cells_for_pdf_numbering = sorted(
-            cell_info_for_sorting_pdf, key=lambda c: (c["top"], c["left"])
-        )
-        for i, cell_data in enumerate(sorted_cells_for_pdf_numbering):
-            display_number = str(i + 1)
-            center_x_pil = cell_data["center_orig_x"]
-            center_y_pil = cell_data["center_orig_y"]
-            try:
-                if hasattr(draw_on_pil.textbbox, "__call__"):
-                    bbox = draw_on_pil.textbbox(
-                        (center_x_pil, center_y_pil),
-                        display_number,
-                        font=font,
-                        anchor="lt",
-                    )
-                    text_width = bbox[2] - bbox[0]
-                    text_height = bbox[3] - bbox[1]
-                    final_text_x = center_x_pil - text_width / 2
-                    final_text_y = center_y_pil - text_height / 2
-                else:
-                    text_width, text_height = draw_on_pil.textsize(
-                        display_number, font=font
-                    )
-                    final_text_x = center_x_pil - text_width / 2
-                    final_text_y = center_y_pil - text_height / 2
-            except AttributeError:
-                text_width, text_height = 10, 10
-                final_text_x = center_x_pil - text_width / 2
-                final_text_y = center_y_pil - text_height / 2
-            draw_on_pil.text(
-                (final_text_x, final_text_y),
-                display_number,
-                fill=text_color_tuple,
-                font=font,
-            )
-            num_drawn_actually += 1
-        if num_drawn_actually == 0:
-            return base_pil_image
-        return base_pil_image
+            print(f"Export PDF: Failed - {str(e)}")
 
     def export_current_view_as_tif(self):
-        if self.parent_frame.image_view_model.original_image is None:
+        if not self.application_model.image_data.original_image:
             CTkMessagebox(
-                title=constants.MSG_EXPORT_ERROR_TITLE,  # "Export Error"
-                message=constants.MSG_NO_IMAGE_FOR_EXPORT,  # "No image loaded to export."
-                icon="cancel",
+                title=constants.MSG_EXPORT_ERROR_TITLE,
+                message=constants.MSG_NO_IMAGE_FOR_EXPORT,
+                icon="warning",
             )
+            print("Export current view as TIF: No original image loaded.")
             return
 
-        original_pil = self.parent_frame.image_view_model.original_image
-        cell_ids_for_drawing = []
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".tif",
+            filetypes=constants.EXPORT_FILETYPES_TIF_NUMPY,
+            title="Export Current View as TIF",
+            initialfile=f"{self.application_model.base_filename if self.application_model.base_filename else 'view'}{constants.EXPORT_PREFIX_VIEW_TIF}.tif",
+        )
+        if not file_path:
+            print("Export current view as TIF: Save dialog cancelled.")
+            return
 
-        if (
-            self.parent_frame.image_view_model.mask_array is not None
-            and self.parent_frame.image_view_model.mask_array.size > 0
-        ):
-            all_mask_ids = np.unique(self.parent_frame.image_view_model.mask_array)
-            all_cell_ids_set = {cid for cid in all_mask_ids if cid != 0}
+        print(f"Export current view as TIF: Starting export to {file_path}")
+        try:
+            base_img_for_export = (
+                self.application_model.get_processed_image_for_display()
+            )
+            if base_img_for_export is None:
+                base_img_for_export = self.application_model.image_data.original_image
 
-            if self.parent_frame.show_only_deselected.get():
-                cell_ids_for_drawing = list(
-                    all_cell_ids_set - self.parent_frame.image_view_model.included_cells
+            if base_img_for_export is None:
+                CTkMessagebox(
+                    title=constants.MSG_EXPORT_ERROR_TITLE,
+                    message=constants.MSG_NO_IMAGE_FOR_EXPORT,
+                    icon="warning",
+                )
+                print(
+                    "Export current view as TIF: Base image for export is None even after fallback."
+                )
+                return
+
+            # Start with the correct base: processed original or black
+            if self.application_model.display_state.show_original_image:
+                img_to_export_pil = base_img_for_export.copy()
+                print(
+                    "Export current view as TIF: Using processed/original image as base."
                 )
             else:
-                cell_ids_for_drawing = list(
-                    self.parent_frame.image_view_model.included_cells
+                img_to_export_pil = Image.new(
+                    "RGB", base_img_for_export.size, constants.COLOR_BLACK_STR
+                )
+                print(
+                    "Export current view as TIF: Using black image as base (show_original_image is false)."
                 )
 
-        # Initialize output_pil_image
-        if self.parent_frame.show_original.get():
-            output_pil_image = original_pil.copy().convert("RGB")
-        else:
-            output_pil_image = Image.new(
-                "RGB", original_pil.size, constants.COLOR_BLACK_STR
+            current_mask_array = self.application_model.image_data.mask_array
+            all_mask_ids = set()
+            if current_mask_array is not None and current_mask_array.size > 0:
+                unique_ids = np.unique(current_mask_array)
+                all_mask_ids = set(unique_ids[unique_ids != 0])
+
+            ids_to_process_for_display = set()
+            show_deselected_mode = (
+                self.application_model.display_state.show_deselected_masks_only
             )
 
-        # Apply overlays based on current view settings
-        if self.parent_frame.show_mask.get():
-            # _draw_masks_on_pil returns a blended image (new instance)
-            output_pil_image = self._draw_masks_on_pil(
-                output_pil_image.copy(), cell_ids_for_drawing
-            )  # Pass a copy to avoid double blending if base is also mask
-
-        if self.parent_frame.show_boundaries.get():
-            # _draw_boundaries_on_pil modifies the image in place, so pass a copy if it's not the final step or if original is desired clean
-            # For sequential application, we operate on the evolving output_pil_image
-            output_pil_image = self._draw_boundaries_on_pil(
-                output_pil_image, cell_ids_for_drawing
-            )
-
-        if self.parent_frame.show_cell_numbers.get():
-            # _draw_numbers_on_pil modifies the image in place
-            output_pil_image = self._draw_numbers_on_pil(
-                output_pil_image, cell_ids_for_drawing
-            )
-
-        save_path = filedialog.asksaveasfilename(
-            initialfile=f"{self.parent_frame.base_filename}_current_view",
-            defaultextension=".tif",
-            filetypes=[("TIFF Image", "*.tif *.tiff")],
-        )
-
-        if save_path:
-            try:
-                output_pil_image.save(save_path, format="TIFF", compression="tiff_lzw")
-                CTkMessagebox(
-                    title=constants.MSG_EXPORT_SUCCESS_TITLE,  # "Export Successful"
-                    message=f"{constants.MSG_EXPORT_PREFIX_VIEW_TIF} exported successfully.",  # "Current view TIF"
-                    icon="check",
+            if show_deselected_mode:
+                deselected_ids = (
+                    all_mask_ids - self.application_model.image_data.included_cells
                 )
-            except Exception as e:
-                CTkMessagebox(
-                    title=constants.MSG_EXPORT_ERROR_TITLE,  # "Export Error"
-                    message=f"{constants.MSG_EXPORT_FAILED_PREFIX_VIEW_TIF} {str(e)}",  # "Failed to export current view TIF:"
-                    icon="cancel",
+                ids_to_process_for_display = deselected_ids
+            else:
+                ids_to_process_for_display = (
+                    self.application_model.image_data.included_cells.intersection(
+                        all_mask_ids
+                    )
                 )
+
+            # Apply Overlays Sequentially
+            if (
+                self.application_model.display_state.show_cell_masks
+                and current_mask_array is not None
+                and ids_to_process_for_display
+            ):
+                print("Export current view as TIF: Drawing masks.")
+                # Get the mask layer (colors on black)
+                mask_layer = self.overlay_processor.draw_masks_on_pil(
+                    img_to_export_pil,  # Used for size context by processor
+                    ids_to_process_for_display,
+                )
+                # Blend it with the current state of img_to_export_pil
+                img_to_export_pil = self.overlay_processor.blend_image_with_mask_layer(
+                    img_to_export_pil, mask_layer, constants.MASK_BLEND_ALPHA
+                )
+
+            if (
+                self.application_model.display_state.show_cell_boundaries
+                and current_mask_array is not None
+                and ids_to_process_for_display
+            ):
+                print("Export current view as TIF: Drawing boundaries.")
+                img_to_export_pil = self.overlay_processor.draw_boundaries_on_pil(
+                    img_to_export_pil, ids_to_process_for_display
+                )
+
+            if (
+                self.application_model.display_state.show_cell_numbers
+                and current_mask_array is not None
+                and ids_to_process_for_display
+            ):
+                print("Export current view as TIF: Drawing cell numbers.")
+                img_to_export_pil = self.overlay_processor.draw_numbers_on_pil(
+                    img_to_export_pil,
+                    ids_to_process_for_display,
+                    font_size=constants.CELL_NUMBERING_FONT_SIZE_ORIG_IMG,
+                )
+
+            img_to_export_pil.save(file_path, format="TIFF")
+            CTkMessagebox(
+                title=constants.MSG_EXPORT_SUCCESS_TITLE,
+                message=constants.MSG_EXPORT_COMPLETED,
+                icon="check",
+            )
+            print("Export current view as TIF: Successfully exported.")
+
+        except Exception as e:
+            error_message = constants.MSG_EXPORT_FAILED_PREFIX_VIEW_TIF + f" {str(e)}"
+            CTkMessagebox(
+                title=constants.MSG_EXPORT_ERROR_TITLE,
+                message=error_message,
+                icon="cancel",
+            )
+            print(f"Export current view as TIF: Failed - {str(e)}")

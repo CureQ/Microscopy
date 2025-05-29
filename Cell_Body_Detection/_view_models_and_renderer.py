@@ -6,140 +6,28 @@ from PIL import (
     ImageFont,
     ImageTk,
 )
-from scipy import ndimage
 
 from . import constants
-
-
-class PanZoomModel:
-    def __init__(self):
-        self.zoom_level = 1.0
-        self.pan_x = 0.0
-        self.pan_y = 0.0
-        self.last_drag_x = 0
-        self.last_drag_y = 0
-        self.min_zoom_to_fit = 1.0  # Zoom level to fit the current image
-
-    def _calculate_min_zoom_to_fit(
-        self, canvas_width, canvas_height, img_width, img_height
-    ):
-        if img_width == 0 or img_height == 0 or canvas_width == 0 or canvas_height == 0:
-            return 1.0  # Default if no dimensions
-
-        # Calculate zoom to fit width and height
-        zoom_if_fit_width = canvas_width / img_width
-        zoom_if_fit_height = canvas_height / img_height
-
-        # Choose the smaller of the two to ensure the whole image fits
-        return min(
-            zoom_if_fit_width, zoom_if_fit_height, 1.0
-        )  # Also ensure it doesn't go above 1.0 initially if image is smaller
-
-    def reset_for_new_image(
-        self, canvas_width=0, canvas_height=0, img_width=0, img_height=0
-    ):
-        if img_width > 0 and img_height > 0 and canvas_width > 1 and canvas_height > 1:
-            self.min_zoom_to_fit = self._calculate_min_zoom_to_fit(
-                canvas_width, canvas_height, img_width, img_height
-            )
-            self.zoom_level = self.min_zoom_to_fit
-
-            # Center the image at this initial (potentially < 1.0) zoom level
-            zoomed_img_width = img_width * self.zoom_level
-            zoomed_img_height = img_height * self.zoom_level
-            self.pan_x = (canvas_width - zoomed_img_width) / 2.0
-            self.pan_y = (canvas_height - zoomed_img_height) / 2.0
-        else:
-            self.min_zoom_to_fit = 1.0
-            self.zoom_level = 1.0
-            self.pan_x = 0.0
-            self.pan_y = 0.0
-
-        self.last_drag_x = 0
-        self.last_drag_y = 0
-
-    def get_params(self):
-        return self.zoom_level, self.pan_x, self.pan_y
-
-
-class ImageViewModel:
-    def __init__(self):
-        self.original_image = None
-        self.mask_array = None
-        self.included_cells = set()
-        self.user_drawn_cell_ids = set()  # For tracking user-drawn cells
-
-    def reset_for_new_image(self):
-        self.original_image = None
-        self.mask_array = None
-        self.included_cells = set()
-        self.user_drawn_cell_ids.clear()  # Reset user-drawn IDs
-
-    def set_image_data(self, original_image):
-        self.original_image = original_image
-
-    def set_segmentation_result(self, mask_array):
-        self.mask_array = mask_array
-        all_current_mask_ids = set()
-        if mask_array is not None and mask_array.size > 0:
-            all_current_mask_ids = set(np.unique(mask_array)) - {0}
-            self.included_cells = (
-                all_current_mask_ids.copy()
-            )  # By default, include all found by segmentation
-        else:
-            self.included_cells = set()
-
-        # Reconcile user_drawn_cell_ids: only keep those that still exist in the new mask_array
-        self.user_drawn_cell_ids &= all_current_mask_ids
-
-    def toggle_cell_inclusion(self, cell_id):
-        if cell_id in self.included_cells:
-            self.included_cells.remove(cell_id)
-        else:
-            self.included_cells.add(cell_id)
-
-    def add_user_drawn_cell(self, cell_id):
-        """Marks a cell ID as user-drawn."""
-        self.user_drawn_cell_ids.add(cell_id)
-
-    def get_snapshot_data(self):
-        return {
-            "mask_array": self.mask_array.copy()
-            if self.mask_array is not None
-            else None,
-            "included_cells": self.included_cells.copy(),
-            "user_drawn_cell_ids": self.user_drawn_cell_ids.copy(),  # Add to snapshot
-        }
-
-    def restore_from_snapshot(self, snapshot_data):
-        self.mask_array = (
-            snapshot_data["mask_array"].copy()
-            if snapshot_data["mask_array"] is not None
-            else None
-        )
-        self.included_cells = snapshot_data["included_cells"].copy()
-        # Restore user_drawn_cell_ids, provide default if key is missing (for older states)
-        self.user_drawn_cell_ids = snapshot_data.get(
-            "user_drawn_cell_ids", set()
-        ).copy()
+from .application_model import ApplicationModel
+from .image_overlay_processor import ImageOverlayProcessor
 
 
 class ImageViewRenderer:
     def __init__(
-        self, canvas_ref, pan_zoom_model_ref, image_view_model_ref, cell_body_frame_ref
+        self,
+        canvas_ref: ctk.CTkCanvas,
+        application_model_ref: ApplicationModel,
+        cell_body_frame_ref: ctk.CTkFrame,  # To access some UI elements like boundary_color or show_original
     ):
         self.image_canvas = canvas_ref
-        self.pan_zoom_model = pan_zoom_model_ref
-        self.image_view_model = image_view_model_ref
-        self.parent_frame = (
-            cell_body_frame_ref  # To access display options and _get_exact_boundaries
-        )
+        self.application_model = application_model_ref
+        self.parent_frame = cell_body_frame_ref
+
+        self.overlay_processor = ImageOverlayProcessor(application_model_ref)
 
         self.tk_image_on_canvas = None
         self._update_display_retry_id = None
-        self.dilation_iterations = constants.DILATION_ITERATIONS_FOR_BOUNDARY_DISPLAY
 
-        # Overlay Caching Attributes
         self._cached_full_res_mask_rgb = None
         self._cached_mask_ids_tuple_state = None
         self._cached_show_deselected_mask_state = None
@@ -149,61 +37,118 @@ class ImageViewRenderer:
         self._cached_show_deselected_boundary_state = None
         self._cached_boundary_color_state = None
 
-        # Cache for cell numbering
         self._cached_cell_number_positions = None
         self._cached_cell_number_ids_tuple_state = None
         self._cached_cell_number_show_deselected_state = None
 
-        # Drawing feedback attributes
-        self.draw_feedback_color = (
-            constants.DRAW_FEEDBACK_COLOR
-        )  # For lines and intermediate points
+        self.draw_feedback_color = constants.DRAW_FEEDBACK_COLOR
         self.draw_first_point_color = constants.DRAW_FIRST_POINT_COLOR
         self.draw_last_point_color = constants.DRAW_LAST_POINT_COLOR
-        self.draw_point_radius = constants.DRAW_POINT_RADIUS  # pixels on canvas
+        self.draw_point_radius = constants.DRAW_POINT_RADIUS
+
+        # Subscribe to model changes
+        self.application_model.subscribe(self.handle_model_update)
+
+    def handle_model_update(self, change_type: str | None = None):
+        """
+        Called by the ApplicationModel when its state changes.
+        Determines if a re-render is necessary.
+        """
+        print(
+            f"ImageViewRenderer.handle_model_update received change_type: {change_type}"
+        )
+
+        if change_type in [
+            "image_loaded",
+            "segmentation_updated",
+            "cell_selection_changed",
+            "mask_updated_user_drawn",
+            "pan_zoom_updated",
+            "pan_zoom_reset",
+            "display_settings_changed",
+            "display_settings_reset",
+            "view_options_changed",
+            "model_restored_undo",
+            "model_restored_redo",
+            "history_updated",
+        ]:
+            if change_type == "pan_zoom_updated":
+                print(
+                    f"ImageViewRenderer: '{change_type}' detected, rendering with interactive quality."
+                )
+                self.render(quality="interactive")
+            else:
+                print(
+                    f"ImageViewRenderer: '{change_type}' detected, rendering with final quality."
+                )
+                self.render(quality="final")
+
+        # Specific cache invalidations based on change_type
+        if change_type in [
+            "segmentation_updated",
+            "cell_selection_changed",
+            "mask_updated_user_drawn",
+            "model_restored_undo",
+            "model_restored_redo",
+        ]:
+            print(
+                f"ImageViewRenderer: '{change_type}' detected, invalidating all caches."
+            )
+            self.invalidate_caches()  # Selection or mask structure changed
+
+        if change_type in [
+            "view_options_changed",
+            "display_settings_changed",
+            "display_settings_reset",
+        ]:
+            print(
+                f"ImageViewRenderer: '{change_type}' detected, checking and invalidating specific caches."
+            )
+            # If boundary color changes, boundary cache is invalid
+            if (
+                self._cached_boundary_color_state
+                != self.application_model.display_state.boundary_color_name
+            ):
+                print(
+                    "ImageViewRenderer: Boundary color changed, invalidating boundary cache."
+                )
+                self._cached_full_res_boundary_pil = None
+            # If show_deselected changes, all caches that depend on it are invalid
+            if (
+                self._cached_show_deselected_mask_state
+                != self.application_model.display_state.show_deselected_masks_only
+            ):
+                print(
+                    "ImageViewRenderer: 'Show deselected masks only' changed, invalidating relevant caches."
+                )
+                self._cached_full_res_mask_rgb = None
+                self._cached_full_res_boundary_pil = None
+                self._cached_cell_number_positions = None
 
     def invalidate_caches(self):
+        print("ImageViewRenderer: Invalidating all rendering caches.")
         self._cached_full_res_mask_rgb = None
         self._cached_mask_ids_tuple_state = None
-        self._cached_show_deselected_mask_state = None  # Clear renamed cache state
+        self._cached_show_deselected_mask_state = None
 
         self._cached_full_res_boundary_pil = None
         self._cached_boundary_ids_tuple_state = None
-        self._cached_show_deselected_boundary_state = None  # Clear renamed cache state
+        self._cached_show_deselected_boundary_state = None
         self._cached_boundary_color_state = None
 
         self._cached_cell_number_positions = None
         self._cached_cell_number_ids_tuple_state = None
         self._cached_cell_number_show_deselected_state = None
 
-    def _dilate_boundary(self, bool_mask, iterations=1):
-        """Simple dilation for a boolean mask using NumPy."""
-        if not bool_mask.any() or iterations < 1:
-            return bool_mask
-
-        dilated_mask = bool_mask.copy()
-        for _ in range(iterations):
-            to_add = np.zeros_like(dilated_mask, dtype=bool)
-            true_coords = np.argwhere(dilated_mask)
-            for r, c in true_coords:
-                for dr in [-1, 0, 1]:
-                    for dc in [-1, 0, 1]:
-                        if dr == 0 and dc == 0:
-                            continue
-                        nr, nc = r + dr, c + dc
-                        if (
-                            0 <= nr < dilated_mask.shape[0]
-                            and 0 <= nc < dilated_mask.shape[1]
-                        ):
-                            to_add[nr, nc] = True
-            dilated_mask |= to_add
-        return dilated_mask
-
     def render(self, quality="final"):
+        print(f"ImageViewRenderer.render called with quality: {quality}")
         canvas_width = self.image_canvas.winfo_width()
         canvas_height = self.image_canvas.winfo_height()
 
         if canvas_width <= 1 or canvas_height <= 1:
+            print(
+                f"ImageViewRenderer: Canvas not ready (width={canvas_width}, height={canvas_height}). Scheduling retry for render."
+            )
             if self._update_display_retry_id:
                 self.image_canvas.after_cancel(self._update_display_retry_id)
             self._update_display_retry_id = self.image_canvas.after(
@@ -212,9 +157,17 @@ class ImageViewRenderer:
             )
             return
 
-        if self.image_view_model.original_image is None:
+        # Fetch the (potentially processed) image from ApplicationModel
+        pil_image_to_render = self.application_model.get_processed_image_for_display()
+
+        if pil_image_to_render is None:
             self.image_canvas.delete("all")
-            text_color = "white"
+            print(
+                "ImageViewRenderer: No image to render. Displaying 'Select Image' prompt."
+            )
+            text_color = "white"  # Default
+            # Accessing theme for text color if main app uses CTk Theming
+            # This assumes parent_frame is the main app or has access to theme manager
             if (
                 hasattr(self.parent_frame, "_apply_appearance_mode")
                 and hasattr(ctk, "ThemeManager")
@@ -224,36 +177,51 @@ class ImageViewRenderer:
                     text_color = self.parent_frame._apply_appearance_mode(
                         ctk.ThemeManager.theme["CTkLabel"]["text_color"]
                     )
-                except KeyError:
+                except (KeyError, TypeError):
                     pass
             self.image_canvas.create_text(
                 canvas_width / 2,
                 canvas_height / 2,
-                text=constants.MSG_SELECT_IMAGE_PROMPT,  # "Select an Image"
+                text=constants.MSG_SELECT_IMAGE_PROMPT,
                 fill=text_color,
                 font=ctk.CTkFont(size=16),
             )
             self.tk_image_on_canvas = None
-            if self.parent_frame.stats_label:
+            # Update stats label
+            if hasattr(self.parent_frame, "_update_stats_label"):
+                self.parent_frame._update_stats_label()
+            elif (
+                hasattr(self.parent_frame, "stats_label")
+                and self.parent_frame.stats_label
+            ):  # Direct access fallback
                 self.parent_frame.stats_label.configure(
                     text=constants.UI_TEXT_STATS_LABEL_DEFAULT
                 )
             return
 
-        zoom, pan_x, pan_y = self.pan_zoom_model.get_params()
-        pil_original_image = self.image_view_model.original_image
+        zoom, pan_x, pan_y = self.application_model.pan_zoom_state.get_params()
+        print(f"ImageViewRenderer: Rendering with zoom={zoom}, pan=({pan_x},{pan_y})")
 
-        new_width = int(pil_original_image.width * zoom)
-        new_height = int(pil_original_image.height * zoom)
+        new_width = int(pil_image_to_render.width * zoom)
+        new_height = int(pil_image_to_render.height * zoom)
 
         if new_width <= 0 or new_height <= 0:
+            print(
+                f"ImageViewRenderer: Calculated new_width ({new_width}) or new_height ({new_height}) is <= 0. Clearing canvas."
+            )
             self.image_canvas.delete("all")
             self.tk_image_on_canvas = None
             return
 
         resample_filter = Image.LANCZOS if quality == "final" else Image.NEAREST
-        zoomed_image = pil_original_image.resize(
-            (max(1, new_width), max(1, new_height)), resample_filter
+        print(
+            f"ImageViewRenderer: Resampling original image with filter: {'LANCZOS' if quality == 'final' else 'NEAREST'}."
+        )
+        # Ensure new_width and new_height are at least 1 for resize
+        safe_new_width = max(1, new_width)
+        safe_new_height = max(1, new_height)
+        zoomed_image = pil_image_to_render.resize(
+            (safe_new_width, safe_new_height), resample_filter
         )
 
         canvas_view_pil = Image.new(
@@ -287,156 +255,208 @@ class ImageViewRenderer:
             )
 
         base_display_img = canvas_view_pil
-        if not self.parent_frame.show_original.get():
+        # Use show_original_image from ApplicationModel's display_state
+        if not self.application_model.display_state.show_original_image:
             base_display_img = Image.new(
                 "RGB", (canvas_width, canvas_height), constants.COLOR_BLACK_STR
             )
 
-        current_mask_array = self.image_view_model.mask_array
+        current_mask_array = (
+            self.application_model.image_data.mask_array
+        )  # Use ApplicationModel
         all_mask_ids = set()
         if current_mask_array is not None and current_mask_array.size > 0:
             unique_ids = np.unique(current_mask_array)
-            all_mask_ids = set(unique_ids[unique_ids != 0])  # Exclude 0 background
+            all_mask_ids = set(unique_ids[unique_ids != 0])
 
         ids_to_process_for_display = set()
-        show_deselected_mode = self.parent_frame.show_only_deselected.get()
+        # Use show_deselected_masks_only from ApplicationModel's display_state
+        show_deselected_mode = (
+            self.application_model.display_state.show_deselected_masks_only
+        )
 
         if show_deselected_mode:
-            # If mode is active, ids_to_process are those in all_mask_ids but NOT in included_cells
-            deselected_ids = all_mask_ids - self.image_view_model.included_cells
+            deselected_ids = (
+                all_mask_ids - self.application_model.image_data.included_cells
+            )  # Use ApplicationModel
             ids_to_process_for_display = deselected_ids
         else:
-            # Default mode: ids_to_process are those in included_cells (and also in all_mask_ids)
             ids_to_process_for_display = (
-                self.image_view_model.included_cells.intersection(all_mask_ids)
+                self.application_model.image_data.included_cells.intersection(
+                    all_mask_ids
+                )  # Use ApplicationModel
             )
 
         current_ids_tuple_for_display = tuple(sorted(list(ids_to_process_for_display)))
 
         if current_mask_array is not None and current_mask_array.size > 0:
             # MASK OVERLAY
-            if self.parent_frame.show_mask.get():
+            # Use show_cell_masks from ApplicationModel's display_state
+            if self.application_model.display_state.show_cell_masks:
+                print("ImageViewRenderer: Drawing cell masks.")
                 if (
                     self._cached_full_res_mask_rgb is None
                     or self._cached_mask_ids_tuple_state
                     != current_ids_tuple_for_display
                     or self._cached_show_deselected_mask_state
-                    != show_deselected_mode  # Use correct state var
+                    != self.application_model.display_state.show_deselected_masks_only
                 ):
-                    self._cached_full_res_mask_rgb = Image.new(
-                        "RGB", pil_original_image.size, constants.COLOR_BLACK_STR
+                    print(
+                        "ImageViewRenderer: Mask cache miss or invalid. Regenerating full-res mask layer via OverlayProcessor."
                     )
-                    rng = np.random.default_rng(seed=constants.RANDOM_SEED_MASKS)
-                    unique_ids_for_colormap = np.unique(current_mask_array)
-                    color_map = {
-                        uid: tuple(rng.integers(50, 200, size=3))
-                        for uid in unique_ids_for_colormap
-                        if uid != 0
-                    }
-                    temp_mask_np = np.zeros(
-                        (*current_mask_array.shape, 3), dtype=np.uint8
+                    self._cached_full_res_mask_rgb = (
+                        self.overlay_processor.draw_masks_on_pil(
+                            base_pil_image=pil_image_to_render,  # Pass for size context
+                            cell_ids_to_draw=ids_to_process_for_display,
+                        )
                     )
-                    for cell_id_val in ids_to_process_for_display:
-                        if cell_id_val != 0:
-                            temp_mask_np[current_mask_array == cell_id_val] = (
-                                color_map.get(
-                                    cell_id_val, constants.COLOR_BLACK_RGB
-                                )  # (255,0,0) fallback
-                            )
-                    self._cached_full_res_mask_rgb = Image.fromarray(temp_mask_np)
+                    # _cached_full_res_mask_rgb now stores the raw RGB mask layer.
+
                     self._cached_mask_ids_tuple_state = current_ids_tuple_for_display
                     self._cached_show_deselected_mask_state = (
-                        show_deselected_mode  # Store correct state var
+                        self.application_model.display_state.show_deselected_masks_only
                     )
 
+                # Now, _cached_full_res_mask_rgb holds the MASK LAYER (colors on black)
                 overlay_resample_filter = Image.NEAREST
-                zoomed_mask_rgb = self._cached_full_res_mask_rgb.resize(
-                    (max(1, new_width), max(1, new_height)),
+                zoomed_mask_layer_rgb = self._cached_full_res_mask_rgb.resize(
+                    (safe_new_width, safe_new_height),
                     resample=overlay_resample_filter,
                 )
+
                 if crop_box and width_to_copy > 0 and height_to_copy > 0:
-                    cropped_mask = zoomed_mask_rgb.crop(crop_box)
-                    temp_overlay = Image.new(
+                    cropped_mask_layer = zoomed_mask_layer_rgb.crop(crop_box)
+                    canvas_mask_layer = Image.new(
                         "RGB", (canvas_width, canvas_height), (0, 0, 0)
                     )
-                    temp_overlay.paste(
-                        cropped_mask, (paste_dst_x_on_canvas, paste_dst_y_on_canvas)
-                    )
-                    base_display_img = Image.blend(
-                        base_display_img.convert("RGB"),
-                        temp_overlay,
-                        alpha=constants.MASK_BLEND_ALPHA,
+                    canvas_mask_layer.paste(
+                        cropped_mask_layer,
+                        (paste_dst_x_on_canvas, paste_dst_y_on_canvas),
                     )
 
-            # BOUNDARY OVERLAY
-            if self.parent_frame.show_boundaries.get():
-                current_boundary_color_name = self.parent_frame.boundary_color.get()
-                if (
-                    self._cached_full_res_boundary_pil is None
-                    or self._cached_boundary_ids_tuple_state
-                    != current_ids_tuple_for_display
-                    or self._cached_show_deselected_boundary_state
-                    != show_deselected_mode  # Use correct state var
-                    or self._cached_boundary_color_state != current_boundary_color_name
-                ):
-                    exact_boundaries = self.parent_frame._get_exact_boundaries(
-                        current_mask_array
-                    )
-                    boundary_to_draw = np.zeros_like(exact_boundaries, dtype=bool)
-                    for cid in ids_to_process_for_display:
-                        boundary_to_draw |= exact_boundaries & (
-                            current_mask_array == cid
-                        )
-                    if self.dilation_iterations > 0:
-                        dilated_boundary_for_cache = self._dilate_boundary(
-                            boundary_to_draw, iterations=self.dilation_iterations
+                    if self.application_model.display_state.show_original_image:
+                        # base_display_img currently holds the (processed) original image
+                        base_display_img = Image.blend(
+                            base_display_img.convert("RGB"),
+                            canvas_mask_layer,
+                            alpha=constants.MASK_BLEND_ALPHA,
                         )
                     else:
-                        dilated_boundary_for_cache = boundary_to_draw
-                    self._cached_full_res_boundary_pil = Image.fromarray(
-                        dilated_boundary_for_cache.astype(np.uint8) * 255
+                        # base_display_img is already black if show_original_image is false.
+                        # So, we just display the mask layer (which is colors on black).
+                        base_display_img = canvas_mask_layer
+
+            # BOUNDARY OVERLAY
+            # Use show_cell_boundaries from ApplicationModel's display_state
+            if self.application_model.display_state.show_cell_boundaries:
+                # Use boundary_color_name from ApplicationModel's display_state
+                print("ImageViewRenderer: Drawing cell boundaries.")
+                current_boundary_color_name = (
+                    self.application_model.display_state.boundary_color_name
+                )
+
+                # Get pre-calculated exact boundaries from ApplicationModel
+                exact_boundaries = self.application_model.image_data.exact_boundaries
+
+                if (
+                    exact_boundaries
+                    is not None  # Check if exact_boundaries are available
+                    and (
+                        self._cached_full_res_boundary_pil is None
+                        or self._cached_boundary_ids_tuple_state
+                        != current_ids_tuple_for_display
+                        # Use show_deselected_masks_only from ApplicationModel for cache state
+                        or self._cached_show_deselected_boundary_state
+                        != self.application_model.display_state.show_deselected_masks_only
+                        # Use boundary_color_name from ApplicationModel for cache state
+                        or self._cached_boundary_color_state
+                        != self.application_model.display_state.boundary_color_name
                     )
+                ):
+                    print(
+                        "ImageViewRenderer: Boundary cache miss or invalid. Regenerating full-res boundary PIL via OverlayProcessor."
+                    )
+                    # Create a black base image of the correct full resolution size
+                    black_base_for_boundary_extraction = Image.new(
+                        "RGB", pil_image_to_render.size, (0, 0, 0)
+                    )
+
+                    # Ask the processor to draw boundaries on this black base
+                    image_with_boundaries_drawn = self.overlay_processor.draw_boundaries_on_pil(
+                        base_pil_image=black_base_for_boundary_extraction,  # Use the black base
+                        cell_ids_to_draw=ids_to_process_for_display,
+                    )
+
+                    # To get a monochrome boundary mask (L mode):
+                    # Convert the result to grayscale. Boundary pixels (colored) will be non-black.
+                    # Non-boundary pixels (originally black) will remain black.
+                    # Then convert to boolean where non-black is True (boundary).
+                    gray_image_with_boundaries = image_with_boundaries_drawn.convert(
+                        "L"
+                    )
+                    boundary_mask_np = (
+                        np.array(gray_image_with_boundaries) > 0
+                    )  # Threshold at 0 for any color
+
+                    if np.any(boundary_mask_np):
+                        self._cached_full_res_boundary_pil = Image.fromarray(
+                            boundary_mask_np.astype(np.uint8) * 255, mode="L"
+                        )
+                    else:
+                        self._cached_full_res_boundary_pil = Image.new(
+                            "L", pil_image_to_render.size, 0
+                        )
+
                     self._cached_boundary_ids_tuple_state = (
                         current_ids_tuple_for_display
                     )
                     self._cached_show_deselected_boundary_state = (
-                        show_deselected_mode  # Store correct state var
+                        self.application_model.display_state.show_deselected_masks_only
                     )
-                    self._cached_boundary_color_state = current_boundary_color_name
+                    self._cached_boundary_color_state = (
+                        self.application_model.display_state.boundary_color_name
+                    )  # Update cache
 
-                overlay_resample_filter = Image.NEAREST
-                zoomed_boundary_pil = self._cached_full_res_boundary_pil.resize(
-                    (max(1, new_width), max(1, new_height)),
-                    resample=overlay_resample_filter,
-                )
-                if crop_box and width_to_copy > 0 and height_to_copy > 0:
-                    cropped_boundary = zoomed_boundary_pil.crop(crop_box)
-                    boundary_color_map_pil = constants.BOUNDARY_COLOR_MAP_PIL
-                    chosen_color = boundary_color_map_pil.get(
-                        current_boundary_color_name,
-                        constants.BOUNDARY_COLOR_MAP_PIL["Green"],  # Default green
+                # Check if _cached_full_res_boundary_pil is not None before proceeding to use it
+                if self._cached_full_res_boundary_pil is not None:
+                    print(
+                        "ImageViewRenderer: Boundary cache hit. Drawing boundary overlay."
                     )
-                    final_boundary_on_canvas_bool = Image.new(
-                        "L", (canvas_width, canvas_height), 0
+                    overlay_resample_filter = Image.NEAREST
+                    zoomed_boundary_pil = self._cached_full_res_boundary_pil.resize(
+                        (safe_new_width, safe_new_height),  # Use safe dimensions
+                        resample=overlay_resample_filter,
                     )
-                    final_boundary_on_canvas_bool.paste(
-                        cropped_boundary, (paste_dst_x_on_canvas, paste_dst_y_on_canvas)
-                    )
-                    base_np = np.array(base_display_img.convert("RGB"))
-                    boundary_pixels_np = np.array(final_boundary_on_canvas_bool) > 0
-                    base_np[boundary_pixels_np] = chosen_color
-                    base_display_img = Image.fromarray(base_np)
+                    if crop_box and width_to_copy > 0 and height_to_copy > 0:
+                        cropped_boundary = zoomed_boundary_pil.crop(crop_box)
+                        boundary_color_map_pil = constants.BOUNDARY_COLOR_MAP_PIL
+                        # Use boundary_color_name from ApplicationModel
+                        chosen_color = boundary_color_map_pil.get(
+                            self.application_model.display_state.boundary_color_name,
+                            constants.BOUNDARY_COLOR_MAP_PIL["Green"],
+                        )
+                        final_boundary_on_canvas_bool = Image.new(
+                            "L", (canvas_width, canvas_height), 0
+                        )
+                        final_boundary_on_canvas_bool.paste(
+                            cropped_boundary,
+                            (paste_dst_x_on_canvas, paste_dst_y_on_canvas),
+                        )
+                        base_np = np.array(base_display_img.convert("RGB"))
+                        boundary_pixels_np = np.array(final_boundary_on_canvas_bool) > 0
+                        base_np[boundary_pixels_np] = chosen_color
+                        base_display_img = Image.fromarray(base_np)
 
         # --- START DRAWING FEEDBACK ---
         if (
             self.parent_frame.drawing_controller.drawing_mode_active
             and self.parent_frame.drawing_controller.current_draw_points
         ):
-            # Ensure base_display_img is suitable for drawing (it should be RGB)
             if base_display_img.mode != "RGB":
-                base_display_img = base_display_img.convert(
-                    "RGB"
-                )  # Should already be if overlays ran
+                base_display_img = base_display_img.convert("RGB")
+            print(
+                "ImageViewRenderer: Drawing polygon feedback for active drawing mode."
+            )
 
             draw_on_canvas_view = ImageDraw.Draw(base_display_img)
 
@@ -446,7 +466,7 @@ class ImageViewRenderer:
             visible_canvas_dots = []  # Store only points visible on canvas (list of dicts)
 
             for index, (orig_x, orig_y) in enumerate(
-                self.parent_frame.drawing_controller.current_draw_points  # MODIFIED
+                self.parent_frame.drawing_controller.current_draw_points
             ):
                 zoomed_pt_x = orig_x * zoom
                 zoomed_pt_y = orig_y * zoom
@@ -467,7 +487,7 @@ class ImageViewRenderer:
             if visible_canvas_dots:
                 num_total_points = len(
                     self.parent_frame.drawing_controller.current_draw_points
-                )  # MODIFIED
+                )
                 for point_info in visible_canvas_dots:
                     pt_x, pt_y, current_index = (
                         point_info["x"],
@@ -504,8 +524,7 @@ class ImageViewRenderer:
 
             # Draw closing line based on TRUE first and last points of the WHOLE polygon
             if (
-                len(self.parent_frame.drawing_controller.current_draw_points)
-                >= 2  # MODIFIED
+                len(self.parent_frame.drawing_controller.current_draw_points) >= 2
             ):  # Use original point count for this decision
                 first_canvas_pt = all_potential_canvas_points[0]
                 last_canvas_pt = all_potential_canvas_points[-1]
@@ -519,304 +538,176 @@ class ImageViewRenderer:
 
         # --- START CELL NUMBERING ---
         if (
-            self.parent_frame.show_cell_numbers.get()
+            # Use show_cell_numbers from ApplicationModel's display_state
+            self.application_model.display_state.show_cell_numbers
             and current_mask_array is not None
             and current_mask_array.size > 0
             and ids_to_process_for_display
         ):
+            print("ImageViewRenderer: Drawing cell numbers.")
             if base_display_img.mode != "RGB":
                 base_display_img = base_display_img.convert("RGB")
             draw_on_canvas_view = ImageDraw.Draw(base_display_img)
 
-            # Determine font size based on zoom level - make it adaptive but not too small
-            # Aim for a font size that's roughly 10-15px on the original image scale, then scaled by zoom.
-            # This needs to be translated to a PIL font size for the canvas_view_pil image.
-            # Let's try to make the numbers roughly 1/20th of the smaller dimension of a typical cell.
-            # For now, a fixed size scaled by zoom, clamped.
-            base_font_size_orig_img = (
-                constants.CELL_NUMBERING_FONT_SIZE_ORIG_IMG
-            )  # Approximate size on original image pixels
-            # This font size is for drawing on the canvas_view_pil, which is at canvas resolution.
-            # The numbers should appear consistent in size relative to the cells on the screen.
-            # So, the size should scale with the zoom applied to the cell, but drawn on the unzoomed canvas view part.
-
-            # The text is drawn on base_display_img, which is the canvas view.
-            # We need to map cell centers (from original image coords) to canvas view coords.
-
-            # Get boundary color for text
-            current_boundary_color_name = self.parent_frame.boundary_color.get()
-            boundary_color_map_pil = (
-                constants.BOUNDARY_COLOR_MAP_PIL
-            )  # Moved to constants
-            text_color_tuple = boundary_color_map_pil.get(
+            current_boundary_color_name = (
+                self.application_model.display_state.boundary_color_name
+            )
+            # For text color on canvas, use BOUNDARY_COLOR_MAP_PIL (same as boundaries)
+            text_color_map_canvas = constants.BOUNDARY_COLOR_MAP_PIL
+            text_color_tuple = text_color_map_canvas.get(
                 current_boundary_color_name,
-                constants.BOUNDARY_COLOR_MAP_PIL["Green"],  # Default green
+                constants.BOUNDARY_COLOR_MAP_PIL["Green"],
             )
 
             try:
-                # Attempt to load a common system font. Size will be adjusted later.
                 font = ImageFont.truetype(
                     constants.DEFAULT_FONT, size=constants.DEFAULT_FALLBACK_FONT_SIZE
-                )  # Placeholder size
+                )
             except IOError:
-                font = ImageFont.load_default()  # Fallback
+                font = ImageFont.load_default()
 
-            # --- Cell Position Calculation and Caching ---
+            # --- Cell Position Calculation and Caching (using OverlayProcessor method) ---
             if (
                 self._cached_cell_number_positions is None
                 or self._cached_cell_number_ids_tuple_state
                 != current_ids_tuple_for_display
                 or self._cached_cell_number_show_deselected_state
-                != show_deselected_mode
+                != self.application_model.display_state.show_deselected_masks_only
             ):
-                # print("DEBUG: Recalculating cell number positions") # Optional debug
-                cell_info_for_sorting = []
-                img_h_orig, img_w_orig = (
-                    pil_original_image.height,
-                    pil_original_image.width,
+                print(
+                    "ImageViewRenderer: Cell number positions cache miss or invalid. Recalculating via OverlayProcessor."
                 )
-
-                for cell_id_val in ids_to_process_for_display:
-                    if cell_id_val != 0:
-                        single_cell_mask = current_mask_array == cell_id_val
-                        if np.any(single_cell_mask):
-                            rows, cols = np.where(single_cell_mask)
-                            top_most = np.min(rows)
-                            left_most_in_top_row = np.min(cols[rows == top_most])
-
-                            # Attempt to find a point with a 10px margin from cell boundary
-                            cell_boundary_margin = (
-                                constants.CELL_CENTER_FIND_MARGIN
-                            )  # 10
-                            eroded_mask = ndimage.binary_erosion(
-                                single_cell_mask,
-                                iterations=cell_boundary_margin,
-                                border_value=0,
-                            )
-
-                            chosen_cx, chosen_cy = -1.0, -1.0  # Initialize
-
-                            if np.any(eroded_mask):
-                                # Try to use a point from the eroded mask
-                                cy_eroded_com, cx_eroded_com = ndimage.center_of_mass(
-                                    eroded_mask
-                                )
-                                cy_eroded_idx, cx_eroded_idx = (
-                                    int(round(cy_eroded_com)),
-                                    int(round(cx_eroded_com)),
-                                )
-                                if (
-                                    0 <= cy_eroded_idx < eroded_mask.shape[0]
-                                    and 0 <= cx_eroded_idx < eroded_mask.shape[1]
-                                    and eroded_mask[cy_eroded_idx, cx_eroded_idx]
-                                ):
-                                    chosen_cx, chosen_cy = cx_eroded_com, cy_eroded_com
-                                else:
-                                    # COM of eroded mask is outside eroded mask, use PoA of eroded mask
-                                    dist_transform_eroded = (
-                                        ndimage.distance_transform_edt(eroded_mask)
-                                    )
-                                    pole_y_eroded, pole_x_eroded = np.unravel_index(
-                                        np.argmax(dist_transform_eroded),
-                                        dist_transform_eroded.shape,
-                                    )
-                                    chosen_cx, chosen_cy = (
-                                        float(pole_x_eroded),
-                                        float(pole_y_eroded),
-                                    )
-                            else:
-                                # Eroded mask is empty, fall back to original mask logic
-                                cy_orig_com, cx_orig_com = ndimage.center_of_mass(
-                                    single_cell_mask
-                                )
-                                cy_idx, cx_idx = (
-                                    int(round(cy_orig_com)),
-                                    int(round(cx_orig_com)),
-                                )
-                                if (
-                                    0 <= cy_idx < single_cell_mask.shape[0]
-                                    and 0 <= cx_idx < single_cell_mask.shape[1]
-                                    and single_cell_mask[cy_idx, cx_idx]
-                                ):
-                                    chosen_cx, chosen_cy = cx_orig_com, cy_orig_com
-                                else:
-                                    dist_transform_orig = (
-                                        ndimage.distance_transform_edt(single_cell_mask)
-                                    )
-                                    pole_y_orig, pole_x_orig = np.unravel_index(
-                                        np.argmax(dist_transform_orig),
-                                        dist_transform_orig.shape,
-                                    )
-                                    chosen_cx, chosen_cy = (
-                                        float(pole_x_orig),
-                                        float(pole_y_orig),
-                                    )
-
-                            final_cx_orig, final_cy_orig = chosen_cx, chosen_cy
-
-                            # Clamp coordinates to be within original image bounds with an image boundary margin
-                            margin = (
-                                constants.IMAGE_BOUNDARY_MARGIN_FOR_NUMBER_PLACEMENT
-                            )  # 10
-                            # Ensure that the max coordinate for clamping is not less than the min coordinate
-                            # If img_w_orig - 1 - margin < margin, it means the image is too small for the margin on both sides.
-                            # In such a case, clamp to 'margin' from the top/left.
-
-                            cx_min_clamp = margin
-                            cx_max_clamp = max(
-                                margin, img_w_orig - 1 - margin
-                            )  # Ensure max_clamp is not less than min_clamp for small images
-
-                            cy_min_clamp = margin
-                            cy_max_clamp = max(
-                                margin, img_h_orig - 1 - margin
-                            )  # Ensure max_clamp is not less than min_clamp for small images
-
-                            final_cx_orig = max(
-                                cx_min_clamp, min(final_cx_orig, cx_max_clamp)
-                            )
-                            final_cy_orig = max(
-                                cy_min_clamp, min(final_cy_orig, cy_max_clamp)
-                            )
-
-                            # Fallback for extremely small images where even the margin might be an issue
-                            # (e.g., if img_w_orig < margin). The above max(margin, ...) handles this by preferring 'margin'.
-                            # However, ensure it's still within overall 0 to img_dim-1 if somehow margin is > img_dim.
-                            final_cx_orig = max(0, min(final_cx_orig, img_w_orig - 1))
-                            final_cy_orig = max(0, min(final_cy_orig, img_h_orig - 1))
-
-                            cell_info_for_sorting.append(
-                                {
-                                    "id": cell_id_val,
-                                    "top": top_most,
-                                    "left": left_most_in_top_row,
-                                    "center_orig_x": final_cx_orig,
-                                    "center_orig_y": final_cy_orig,
-                                }
-                            )
-
-                self._cached_cell_number_positions = sorted(
-                    cell_info_for_sorting, key=lambda c: (c["top"], c["left"])
+                self._cached_cell_number_positions = (
+                    self.overlay_processor._calculate_and_sort_cell_number_info(
+                        ids_to_process_for_display
+                    )
                 )
                 self._cached_cell_number_ids_tuple_state = current_ids_tuple_for_display
-                self._cached_cell_number_show_deselected_state = show_deselected_mode
+                self._cached_cell_number_show_deselected_state = (
+                    self.application_model.display_state.show_deselected_masks_only
+                )
+            else:
+                print("ImageViewRenderer: Cell number positions cache hit.")
             # --- End Cell Position Calculation and Caching ---
 
-            # Draw numbers using cached and sorted positions
             sorted_cells_to_draw = self._cached_cell_number_positions
-            if (
-                not sorted_cells_to_draw
-            ):  # Should not happen if ids_to_process_for_display was not empty
-                return
-
-            for i, cell_data in enumerate(sorted_cells_to_draw):
-                display_number = str(i + 1)
-                center_orig_x, center_orig_y = (
-                    cell_data["center_orig_x"],
-                    cell_data["center_orig_y"],
-                )
-
-                # Transform original image center to canvas view coordinates
-                zoomed_center_x = center_orig_x * zoom
-                zoomed_center_y = center_orig_y * zoom
-
-                # Relative to the cropped portion of the zoomed image
-                # src_x1_on_zoomed_img, src_y1_on_zoomed_img are from the main rendering logic for cropping
-                rel_zoomed_center_x = zoomed_center_x - (
-                    src_x1_on_zoomed_img if crop_box else 0
-                )
-                rel_zoomed_center_y = zoomed_center_y - (
-                    src_y1_on_zoomed_img if crop_box else 0
-                )
-
-                # Final position on canvas_view_pil (paste_dst_x_on_canvas, paste_dst_y_on_canvas are also from main rendering)
-                cv_text_x = rel_zoomed_center_x + paste_dst_x_on_canvas
-                cv_text_y = rel_zoomed_center_y + paste_dst_y_on_canvas
-
-                font_size_on_canvas = max(
-                    constants.CELL_NUMBERING_FONT_SIZE_CANVAS_MIN,
-                    int(
-                        constants.CELL_NUMBERING_FONT_SIZE_ORIG_IMG * zoom
-                    ),  # Scale base size by zoom, min 10
-                )  # Scale base size by zoom, min 10
-                font_size_on_canvas = min(
-                    font_size_on_canvas,
-                    constants.CELL_NUMBERING_FONT_SIZE_CANVAS_MAX,  # Max 30 to avoid huge numbers
-                )  # Max 30 to avoid huge numbers
-                try:
-                    current_font = ImageFont.truetype(
-                        constants.DEFAULT_FONT, size=font_size_on_canvas
+            if not sorted_cells_to_draw:
+                # This means no cells to draw numbers for, skip the drawing loop
+                pass  # base_display_img remains unchanged in this block
+            else:
+                for i, cell_data in enumerate(sorted_cells_to_draw):
+                    display_number = str(i + 1)
+                    center_orig_x, center_orig_y = (
+                        cell_data["center_orig_x"],
+                        cell_data["center_orig_y"],
                     )
-                except IOError:
-                    # Fallback if truetype fails (e.g. after first load_default)
-                    # For load_default, size is not settable in the same way, so we might get fixed size.
-                    current_font = ImageFont.load_default()
 
-                # Get text bounding box to center it better
-                try:
-                    # For Pillow 10+ textbbox; for older textsize
-                    if hasattr(draw_on_canvas_view.textbbox, "__call__"):  # Pillow 10+
-                        bbox = draw_on_canvas_view.textbbox(
-                            (cv_text_x, cv_text_y),
+                    # Transform original image center to canvas view coordinates
+                    zoomed_center_x = center_orig_x * zoom
+                    zoomed_center_y = center_orig_y * zoom
+
+                    # Relative to the cropped portion of the zoomed image
+                    # src_x1_on_zoomed_img, src_y1_on_zoomed_img are from the main rendering logic for cropping
+                    rel_zoomed_center_x = zoomed_center_x - (
+                        src_x1_on_zoomed_img if crop_box else 0
+                    )
+                    rel_zoomed_center_y = zoomed_center_y - (
+                        src_y1_on_zoomed_img if crop_box else 0
+                    )
+
+                    # Final position on canvas_view_pil (paste_dst_x_on_canvas, paste_dst_y_on_canvas are also from main rendering)
+                    cv_text_x = rel_zoomed_center_x + paste_dst_x_on_canvas
+                    cv_text_y = rel_zoomed_center_y + paste_dst_y_on_canvas
+
+                    font_size_on_canvas = max(
+                        constants.CELL_NUMBERING_FONT_SIZE_CANVAS_MIN,
+                        int(constants.CELL_NUMBERING_FONT_SIZE_ORIG_IMG * zoom),
+                    )  # Scale base size by zoom, min 10
+                    font_size_on_canvas = min(
+                        font_size_on_canvas,
+                        constants.CELL_NUMBERING_FONT_SIZE_CANVAS_MAX,
+                    )  # Max 30 to avoid huge numbers
+                    try:
+                        current_font = ImageFont.truetype(
+                            constants.DEFAULT_FONT, size=font_size_on_canvas
+                        )
+                    except IOError:
+                        # Fallback if truetype fails (e.g. after first load_default)
+                        current_font = ImageFont.load_default(size=font_size_on_canvas)
+
+                    # Get text bounding box to center it better
+                    try:
+                        # For Pillow 10+ textbbox; for older textsize
+                        if hasattr(
+                            draw_on_canvas_view.textbbox, "__call__"
+                        ):  # Pillow 10+
+                            bbox = draw_on_canvas_view.textbbox(
+                                (cv_text_x, cv_text_y),
+                                display_number,
+                                font=current_font,
+                                anchor="lt",
+                            )  # Get bbox first
+                            text_width = bbox[2] - bbox[0]
+                            text_height = bbox[3] - bbox[1]
+                            # Adjust cv_text_x, cv_text_y to center the text using its bbox
+                            final_text_x = cv_text_x - text_width / 2
+                            final_text_y = cv_text_y - text_height / 2
+                        else:  # Older Pillow, use textsize and manual centering
+                            text_width, text_height = draw_on_canvas_view.textsize(
+                                display_number, font=current_font
+                            )  # Deprecated
+                            final_text_x = cv_text_x - text_width / 2
+                            final_text_y = cv_text_y - text_height / 2
+                    except AttributeError:  # Fallback if textsize and textbbox are missing (very old PIL or other issue)
+                        text_width, text_height = 10, 10  # Dummy values
+                        final_text_x = cv_text_x - text_width / 2
+                        final_text_y = cv_text_y - text_height / 2
+
+                    # Only draw if the center of the text (cv_text_x, cv_text_y) is within the visible canvas part.
+                    # ImageDraw will handle clipping the text if it partially goes off-screen.
+                    if 0 <= cv_text_x < canvas_width and 0 <= cv_text_y < canvas_height:
+                        draw_on_canvas_view.text(
+                            (final_text_x, final_text_y),
                             display_number,
+                            fill=text_color_tuple,
                             font=current_font,
-                            anchor="lt",
-                        )  # Get bbox first
-                        text_width = bbox[2] - bbox[0]
-                        text_height = bbox[3] - bbox[1]
-                        # Adjust cv_text_x, cv_text_y to center the text using its bbox
-                        final_text_x = cv_text_x - text_width / 2
-                        final_text_y = cv_text_y - text_height / 2
-                    else:  # Older Pillow, use textsize and manual centering
-                        text_width, text_height = draw_on_canvas_view.textsize(
-                            display_number, font=current_font
-                        )  # Deprecated
-                        final_text_x = cv_text_x - text_width / 2
-                        final_text_y = cv_text_y - text_height / 2
-                except AttributeError:  # Fallback if textsize and textbbox are missing (very old PIL or other issue)
-                    text_width, text_height = 10, 10  # Dummy values
-                    final_text_x = cv_text_x - text_width / 2
-                    final_text_y = cv_text_y - text_height / 2
-
-                # Only draw if the center of the text (cv_text_x, cv_text_y) is within the visible canvas part.
-                # ImageDraw will handle clipping the text if it partially goes off-screen.
-                if 0 <= cv_text_x < canvas_width and 0 <= cv_text_y < canvas_height:
-                    draw_on_canvas_view.text(
-                        (final_text_x, final_text_y),
-                        display_number,
-                        fill=text_color_tuple,
-                        font=current_font,
-                    )
+                        )
         # --- END CELL NUMBERING ---
 
         # Update stats label
-        if self.parent_frame.stats_label:
+        if hasattr(
+            self.parent_frame, "_update_stats_label"
+        ):  # Check if parent_frame has the method
+            self.parent_frame._update_stats_label()
+        elif (
+            hasattr(self.parent_frame, "stats_label") and self.parent_frame.stats_label
+        ):  # Fallback for direct access
+            # This block is essentially the same as above, could be refactored
+            # For now, keeping it to ensure stats_label is updated if _update_stats_label is not present
+            # This part calculates stats and directly configures the label, which is fine for a fallback.
             total_cells_in_mask = 0
             if (
-                self.image_view_model.mask_array is not None
-                and self.image_view_model.mask_array.size > 0
+                self.application_model.image_data.mask_array is not None
+                and self.application_model.image_data.mask_array.size > 0
             ):
-                # Exclude 0 (background) from unique cell IDs for total count
-                unique_ids_in_mask = np.unique(self.image_view_model.mask_array)
+                unique_ids_in_mask = np.unique(
+                    self.application_model.image_data.mask_array
+                )
                 total_cells_in_mask = len(unique_ids_in_mask[unique_ids_in_mask != 0])
 
-            user_drawn_count = len(self.image_view_model.user_drawn_cell_ids)
-            # Ensure user_drawn_count doesn't exceed total_cells_in_mask, though theoretically it shouldn't if logic is correct.
-            # This can happen if a user_drawn_cell_id somehow persists after masks are cleared/re-segmented without that ID.
-            # The reconciliation in ImageViewModel should handle this, but as a safeguard:
             actual_user_drawn_ids_in_current_mask = (
-                self.image_view_model.user_drawn_cell_ids.intersection(
-                    set(np.unique(self.image_view_model.mask_array))
-                    if self.image_view_model.mask_array is not None
+                self.application_model.image_data.user_drawn_cell_ids.intersection(
+                    set(np.unique(self.application_model.image_data.mask_array))
+                    if self.application_model.image_data.mask_array is not None
                     else set()
                 )
             )
             user_drawn_count = len(actual_user_drawn_ids_in_current_mask)
 
             model_found_count = total_cells_in_mask - user_drawn_count
-            model_found_count = max(0, model_found_count)  # Ensure not negative
+            model_found_count = max(0, model_found_count)
 
-            selected_count = len(self.image_view_model.included_cells)
+            selected_count = len(self.application_model.image_data.included_cells)
 
             stats_text = (
                 f"Cell count:\n"
@@ -827,12 +718,19 @@ class ImageViewRenderer:
             )
             self.parent_frame.stats_label.configure(text=stats_text)
 
+        # Ensure base_display_img has valid dimensions before creating PhotoImage
         if base_display_img.width > 0 and base_display_img.height > 0:
             self.tk_image_on_canvas = ImageTk.PhotoImage(base_display_img)
             self.image_canvas.delete("all")
             self.image_canvas.create_image(
                 0, 0, anchor="nw", image=self.tk_image_on_canvas
             )
+            print("ImageViewRenderer: Successfully updated canvas with new image.")
         else:
+            # This case might happen if new_width/new_height was 0 and pil_image_to_render was not None
+            # Or if base_display_img itself became 0x0 for some reason.
+            print(
+                f"ImageViewRenderer: base_display_img has invalid dimensions ({base_display_img.width}x{base_display_img.height}). Clearing canvas."
+            )
             self.image_canvas.delete("all")
             self.tk_image_on_canvas = None

@@ -57,7 +57,7 @@ MSG_PDF_EXPORT_FAILED = "PDF creation failed: {error}"
 MSG_PDF_ORIGINAL_IMAGE_MISSING = "Original image missing for PDF report."
 MSG_PDF_EXPORTED_SUCCESS = "PDF exported."
 MSG_NO_IMAGE_FOR_EXPORT = "No image loaded to export."
-MSG_EXPORT_PREFIX_VIEW_TIF = "Current view TIF"
+# MSG_EXPORT_PREFIX_VIEW_TIF = "Current view TIF" # This is a UI message string
 MSG_EXPORT_FAILED_PREFIX_VIEW_TIF = "Failed to export current view TIF:"
 
 # --- UI Text ---
@@ -93,9 +93,10 @@ UI_TEXT_PDF_MASKS_BOUNDARIES = "Masks & Boundaries"
 UI_TEXT_PDF_MASKS_NUMBERS = "Masks & Numbers"
 UI_TEXT_PDF_BOUNDARIES_NUMBERS = "Boundaries & Numbers"
 UI_TEXT_PDF_MASKS_BOUNDARIES_NUMBERS = "Masks, Boundaries & Numbers"
+UI_TEXT_PDF_INCLUDE_ORIGINAL = "Include Original Image"
 UI_TEXT_EXPORT_SELECTED_CELLS_BUTTON = "Export Selected Cells as Mask File"
 UI_TEXT_EXPORT_PDF_REPORT_BUTTON = "Export PDF Report"
-UI_TEXT_EXPORT_VIEW_AS_TIF_BUTTON = "Export Current View as TIF"
+UI_TEXT_EXPORT_VIEW_AS_TIF_BUTTON = "Export Current View as Image"
 
 # --- Colors (general, if not covered by specific UI elements) ---
 COLOR_BLACK_RGB = (0, 0, 0)
@@ -120,7 +121,7 @@ PDF_TEXT_NUMBER_COLOR_MAP = {
 MICROSCOPY_IMG_FILETYPES = [
     ("Microscopy Image", "*.tif *.tiff *.lif *.png *.jpg *.jpeg")
 ]
-EXPORT_FILETYPES_TIF_NUMPY = [("TIFF", "*.tif"), ("NumPy array", "*.npy")]
+EXPORT_FILETYPES_TIF_NUMPY = [("TIFF", "*.tif"), ("PNG", "*.png"), ("NumPy array", "*.npy")]
 EXPORT_FILETYPES_PDF = [("PDF files", "*.pdf")]
 
 # --- Keyboard Shortcut Pan/Zoom ---
@@ -163,3 +164,28 @@ RANDOM_SEED_MASKS = 42
 UI_RENDER_RETRY_DELAY_MS = 50
 COLOR_BLACK_STR = "black"  # For PIL Image.new
 MASK_DTYPE_NAME = "int32"  # To be used with np.dtype()
+
+# --- UI Text for Display Adjustments ---
+UI_TEXT_DISPLAY_ADJUSTMENTS = "Image Adjustments"
+UI_TEXT_BRIGHTNESS = "Brightness:"
+UI_TEXT_CONTRAST = "Contrast:"
+UI_TEXT_COLORMAP = "Colormap:"
+UI_TEXT_RESET_DISPLAY_SETTINGS = "Reset Image Adjustments"
+
+# --- PDF Export Drawing & Layout ---
+PDF_CELL_IMAGE_PADDING = 20  # Pixels around cell for individual cell images
+
+# --- File Export Prefixes ---
+EXPORT_PREFIX_VIEW_TIF = "_current_view"
+
+# --- Colormap Options ---
+UI_IMAGE_COLORMAP_OPTIONS = [
+    "gray",       # Standard for raw microscopy images
+    "bone",       # Softer grayscale, good for medical imaging
+    "cividis",    # Colorblind-friendly, perceptually uniform
+    "viridis",    # High contrast, perceptually uniform
+    "plasma",     # More vibrant alternative to viridis
+    "magma",      # Darker tones, good for depth/intensity
+    "inferno",    # High contrast, useful for bright features
+    "twilight",   # Good for low-light microscopy
+]

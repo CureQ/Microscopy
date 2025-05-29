@@ -10,3 +10,4 @@ cellpose
 reportlab
 scikit-image
 scipy
+matplotlib
