@@ -12,7 +12,7 @@ from CTkToolTip import *
 from CTkColorPicker import *
 
 # Import GUI components
-from Cell_Body_Detection._cell_body import cell_body_frame
+from Cell_Body_Detection.cell_body import cell_body_frame
 from Aggregate_Detection._aggregate import aggregate_frame
 from Colocalization._colocalization import colocalization_frame
 

@@ -2,8 +2,9 @@ import numpy as np
 from CTkMessagebox import CTkMessagebox
 from skimage.draw import polygon
 
-from . import constants
-from .application_model import ApplicationModel
+from .. import constants
+from ..model.application_model import ApplicationModel
+from ..utils.debug_logger import log
 
 
 # --- Drawing Controller Class ---
@@ -23,7 +24,10 @@ class DrawingController:
                 message=constants.MSG_DRAWING_LOAD_IMAGE_FIRST,
                 icon="warning",
             )
-            print("DrawingController: Start drawing mode failed - no image loaded.")
+            log(
+                "DrawingController: Start drawing mode failed - no image loaded.",
+                level="WARNING",
+            )
             return
 
         self.drawing_mode_active = True
@@ -32,60 +36,71 @@ class DrawingController:
             []
         ]  # Start with an empty set of points for current drawing session
         self.drawing_history_pointer = 0
-        print(
+        log(
             "DrawingController: Drawing mode started. Polygon points and history reset."
         )
 
-        if self.parent_frame.draw_mask_button:
-            self.parent_frame.draw_mask_button.configure(
+        if self.parent_frame.settings_panel.draw_mask_button:
+            self.parent_frame.settings_panel.draw_mask_button.configure(
                 text=constants.UI_TEXT_FINALIZE_POLYGON_BUTTON,
                 command=self._try_finalize_drawing,
             )
-            print(
-                "DrawingController: Draw mask button configured to 'Finalize Polygon'."
+            log("DrawingController: Draw mask button configured to 'Finalize Polygon'.")
+        if self.parent_frame.settings_panel.segment_button:
+            self.parent_frame.settings_panel.segment_button.configure(state="disabled")
+            log("DrawingController: Segment button disabled.")
+        if self.parent_frame.settings_panel.upload_mask_button:
+            self.parent_frame.settings_panel.upload_mask_button.configure(
+                state="disabled"
             )
-        if self.parent_frame.segment_button:
-            self.parent_frame.segment_button.configure(state="disabled")
-            print("DrawingController: Segment button disabled.")
-        if self.parent_frame.image_canvas:
-            self.parent_frame.image_canvas.config(cursor="crosshair")
-            print("DrawingController: Canvas cursor set to crosshair.")
+            log("DrawingController: Upload mask button disabled.")
+        if self.parent_frame.viewer_panel.image_canvas:
+            self.parent_frame.viewer_panel.image_canvas.config(cursor="crosshair")
+            log("DrawingController: Canvas cursor set to crosshair.")
 
-        self.parent_frame.update_history_buttons()
+        self.parent_frame.settings_panel.update_history_buttons()
         self.parent_frame.update_display(quality="interactive")
 
     def _stop_drawing_mode(self):
         self.drawing_mode_active = False
         self.drawing_history_stack = []
         self.drawing_history_pointer = -1
-        print(
+        log(
             "DrawingController: Drawing mode stopped. Polygon points and history cleared."
         )
 
-        if self.parent_frame.draw_mask_button:
-            self.parent_frame.draw_mask_button.configure(
+        if self.parent_frame.settings_panel.draw_mask_button:
+            self.parent_frame.settings_panel.draw_mask_button.configure(
                 text=constants.UI_TEXT_START_DRAWING_BUTTON,
                 command=self._start_drawing_mode,
             )
-            print(
+            log(
                 "DrawingController: Draw mask button configured back to 'Start Drawing'."
             )
         if (
-            self.parent_frame.segment_button
+            self.parent_frame.settings_panel.segment_button
             and self.application_model.image_data.original_image is not None
         ):
-            self.parent_frame.segment_button.configure(state="normal")
-            print("DrawingController: Segment button re-enabled.")
-        if self.parent_frame.image_canvas:
-            self.parent_frame.image_canvas.config(cursor="")
-            print("DrawingController: Canvas cursor reset.")
+            self.parent_frame.settings_panel.segment_button.configure(state="normal")
+            log("DrawingController: Segment button re-enabled.")
+        if (
+            self.parent_frame.settings_panel.upload_mask_button
+            and self.application_model.image_data.original_image is not None
+        ):
+            self.parent_frame.settings_panel.upload_mask_button.configure(
+                state="normal"
+            )
+            log("DrawingController: Upload mask button re-enabled.")
+        if self.parent_frame.viewer_panel.image_canvas:
+            self.parent_frame.viewer_panel.image_canvas.config(cursor="")
+            log("DrawingController: Canvas cursor reset.")
 
-        self.parent_frame.update_history_buttons()
+        self.parent_frame.settings_panel.update_history_buttons()
         self.parent_frame.update_display(quality="final")
 
     def _try_finalize_drawing(self):
         if not self.drawing_mode_active:
-            print("DrawingController: Finalize drawing called but not in drawing mode.")
+            log("DrawingController: Finalize drawing called but not in drawing mode.")
             return
 
         if len(self.current_draw_points) < 3:
@@ -94,46 +109,46 @@ class DrawingController:
                 message=constants.MSG_DRAWING_NEED_MORE_POINTS,
                 icon="warning",
             )
-            print("DrawingController: Finalize drawing failed - less than 3 points.")
+            log(
+                "DrawingController: Finalize drawing failed - less than 3 points.",
+                level="WARNING",
+            )
+            self._stop_drawing_mode()
             return
 
-        print("DrawingController: Finalizing drawn mask.")
+        log("DrawingController: Finalizing drawn mask.")
         self._finalize_drawn_mask()
         self._stop_drawing_mode()
 
     def _cancel_drawing_action(self, event=None):
         if self.drawing_mode_active:
-            print(
+            log(
                 "DrawingController: Drawing action canceled by user (Escape key or explicit cancel)."
             )
             self.current_draw_points = []
             self._stop_drawing_mode()
             return "break"
-        print(
-            "DrawingController: Cancel drawing action called but not in drawing mode."
-        )
+        log("DrawingController: Cancel drawing action called but not in drawing mode.")
         return None
 
     def _handle_enter_key_press(self, event=None):
         if self.drawing_mode_active:
-            print(
-                "DrawingController: Enter key pressed, attempting to finalize drawing."
-            )
+            log("DrawingController: Enter key pressed, attempting to finalize drawing.")
             self._try_finalize_drawing()
             return "break"
-        print("DrawingController: Enter key press ignored, not in drawing mode.")
+        log("DrawingController: Enter key press ignored, not in drawing mode.")
         return None
 
     def _finalize_drawn_mask(self):
         if not self.current_draw_points or len(self.current_draw_points) < 3:
-            print(
+            log(
                 "DrawingController: _finalize_drawn_mask - No points or less than 3 points, skipping mask creation."
             )
             return
 
         image_data = self.application_model.image_data
         if image_data.original_image is None:
-            print(
+            log(
                 "DrawingController: _finalize_drawn_mask - No original image, skipping mask creation."
             )
             return
@@ -173,7 +188,7 @@ class DrawingController:
         points_c = np.array([p[0] for p in self.current_draw_points], dtype=np.double)
 
         rr, cc = polygon(points_r, points_c, shape=mask_shape_for_skimage)
-        print(
+        log(
             f"DrawingController: Polygon drawn with {len(self.current_draw_points)} points, creating mask for new cell ID: {new_cell_id}."
         )
 
@@ -182,7 +197,7 @@ class DrawingController:
         self.application_model.add_user_drawn_cell_mask(
             current_mask_array_np, new_cell_id
         )
-        print(
+        log(
             f"DrawingController: User-drawn mask with ID {new_cell_id} added to application model."
         )
 
@@ -194,15 +209,13 @@ class DrawingController:
             self.current_draw_points = self.drawing_history_stack[
                 self.drawing_history_pointer
             ].copy()
-            print(
+            log(
                 f"DrawingController: Undo draw action. Pointer at {self.drawing_history_pointer}, {len(self.current_draw_points)} points."
             )
-            self.parent_frame.update_history_buttons()
+            self.parent_frame.settings_panel.update_history_buttons()
             self.parent_frame.update_display(quality="interactive")
         else:
-            print(
-                "DrawingController: Cannot undo draw action - at beginning of history."
-            )
+            log("DrawingController: Cannot undo draw action - at beginning of history.")
 
     def _redo_draw_action(self):
         if self.drawing_history_pointer < len(self.drawing_history_stack) - 1:
@@ -210,19 +223,17 @@ class DrawingController:
             self.current_draw_points = self.drawing_history_stack[
                 self.drawing_history_pointer
             ].copy()
-            print(
+            log(
                 f"DrawingController: Redo draw action. Pointer at {self.drawing_history_pointer}, {len(self.current_draw_points)} points."
             )
-            self.parent_frame.update_history_buttons()
+            self.parent_frame.settings_panel.update_history_buttons()
             self.parent_frame.update_display(quality="interactive")
         else:
-            print("DrawingController: Cannot redo draw action - at end of history.")
+            log("DrawingController: Cannot redo draw action - at end of history.")
 
     def handle_canvas_click_for_draw(self, event):
         if self.application_model.image_data.original_image is None:
-            print(
-                "DrawingController: Canvas click for draw ignored - no original image."
-            )
+            log("DrawingController: Canvas click for draw ignored - no original image.")
             return "break"
 
         canvas_x, canvas_y = event.x, event.y
@@ -234,33 +245,30 @@ class DrawingController:
         img_w = self.application_model.image_data.original_image.width
         img_h = self.application_model.image_data.original_image.height
         if not (0 <= original_x < img_w and 0 <= original_y < img_h):
-            print(
+            log(
                 f"DrawingController: Click for draw at ({original_x},{original_y}) is outside image bounds. Ignoring."
             )
             return "break"
 
         self.current_draw_points.append((original_x, original_y))
-        print(
+        log(
             f"DrawingController: Point ({original_x}, {original_y}) added for drawing. Total points: {len(self.current_draw_points)}."
         )
 
-        new_points_state = self.current_draw_points.copy()
+        new_history_state = self.current_draw_points.copy()
+
+        # Prune redo stack if new action is taken
         if self.drawing_history_pointer < len(self.drawing_history_stack) - 1:
             self.drawing_history_stack = self.drawing_history_stack[
                 : self.drawing_history_pointer + 1
             ]
-            print(
-                "DrawingController: Drawing history truncated for new point after undo."
-            )
 
-        self.drawing_history_stack.append(new_points_state)
-        self.drawing_history_pointer = len(self.drawing_history_stack) - 1
+        self.drawing_history_stack.append(new_history_state)
+        self.drawing_history_pointer += 1
 
-        self.parent_frame.update_history_buttons()
+        self.parent_frame.settings_panel.update_history_buttons()
         self.parent_frame.update_display(quality="interactive")
-        print(
-            f"DrawingController: Drawing history updated. Pointer at {self.drawing_history_pointer}."
-        )
+
         return "break"
 
     def can_undo_draw(self):
