@@ -234,7 +234,7 @@ UI_IMAGE_COLORMAP_OPTIONS = [
 RANDOM_SEED_MASKS = 42
 UI_RENDER_RETRY_DELAY_MS = 50
 MASK_DTYPE_NAME = "int32"  # To be used with np.dtype()
-LIF_LASX_FIX = True  # If True, use special loading for LASX-created LIF files (see _file_io_controller.py)
+LIF_LASX_FIX = True  # If True, use special loading for LASX-created LIF files (see utils/image_reader.py)
 KEY_ZOOM_STEP = 1.1
 MOUSE_WHEEL_ZOOM_SENSITIVITY = 0.02
 
