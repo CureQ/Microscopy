@@ -18,13 +18,21 @@ The Cell Body Detection application helps you:
 
 ### Installation
 
-1. **Download and install Python** (if not already installed) from [python.org](https://python.org)
-2. **Open a terminal or command prompt**
-3. **Install the application**:
+1. **Download and install Python** version 3.12 or 3.13 (if not already installed) from [python.org](https://python.org)
+2. **Download zip of this microscopy folder**
+> a. Navigate to [_main_ branch](https://github.com/CureQ/Microscopy) of _Microscopy_ repository. <br>
+> b. Press green $${\color{green}<> Code}$$ button. <br>
+> c. Click _Download ZIP_.<br>
+> d. Unzip folder in folder directory.
+3. **Open a terminal or command prompt with installed Python library** <br> Navigate to downloaded Microscopy main folder.
+   ```
+   cd /path/to/miscroscopy_folder
+   ```
+4. **Install the application**:
    ```
    pip install -r requirements.txt
    ```
-4. **Run the application**:
+5. **Run the application**:
    ```
    python microscopy_analysis_tool.py
    ```
