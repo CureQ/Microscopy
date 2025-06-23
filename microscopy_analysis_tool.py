@@ -12,7 +12,7 @@ from CTkToolTip import *
 from CTkColorPicker import *
 
 # Import GUI components
-from Cell_Body_Detection._cell_body import cell_body_frame
+from Cell_Body_Detection.cell_body import cell_body_frame
 from Aggregate_Detection._aggregate import aggregate_frame
 from Colocalization._colocalization import colocalization_frame
 
@@ -196,7 +196,7 @@ class main_window(ctk.CTkFrame):
         main_buttons_frame.grid_rowconfigure(1, weight=1)
 
         # Go to Cell body frame
-        cell_body_button = ctk.CTkButton(master=main_buttons_frame, text="Cell Body detection\n\n(Noah Le Roy)", command=lambda: parent.show_frame(cell_body_frame), height=90, width=160)
+        cell_body_button = ctk.CTkButton(master=main_buttons_frame, text="Cell Body detection\n\n(Noah Christian Le Roy)", command=lambda: parent.show_frame(cell_body_frame), height=90, width=160)
         cell_body_button.grid(row=0, column=0, sticky='nesw', pady=10, padx=10)
 
         # Go to Aggregate frame

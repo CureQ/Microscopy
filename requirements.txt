@@ -1,0 +1,30 @@
+# Cell Body Detection Application Dependencies
+# Generated from actual imports and tested environment
+
+# GUI Framework
+customtkinter==5.2.2
+CTkMessagebox==2.7
+CTkToolTip==0.8
+CTkColorPicker==0.9.0
+
+# Core Data Processing
+numpy==2.2.6
+Pillow==11.2.1
+scipy==1.15.3
+scikit-image==0.25.2
+
+# Microscopy Image Handling
+aicsimageio==4.14.0
+readlif==0.6.5
+
+# AI/ML for Segmentation
+cellpose==4.0.4
+
+# Visualization and Colormaps
+matplotlib==3.10.3
+
+# PDF Generation
+reportlab==4.4.1
+
+# Note: tkinter is included with Python standard library
+# Note: threading, os, traceback, io are part of Python standard library
