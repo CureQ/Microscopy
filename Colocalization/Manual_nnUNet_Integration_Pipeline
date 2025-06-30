@@ -1,0 +1,176 @@
+Setting Up the nnUNet Integration Pipeline for mHTT & CCT1 Colocalization
+
+This is a complete guide for setting up and running the nnUNet-based pipeline for segmenting mHTT aggregates and CCT1 chaperone regions from fluorescence microscopy images.
+
+Follow this step by step to install everything you need and run the provided code.
+
+⸻
+
+1. System Requirements
+
+OS
+	•	Linux or macOS recommended
+	•	Windows possible (WSL or Linux VM recommended)
+
+Hardware
+	•	GPU HIGHLY recommended! This model is computationally heavy. Running it on CPU will take a very long time.
+
+⸻
+
+2. Python Environment
+
+Create a Conda environment (recommended):
+
+-if you don't have conda installed please first install conda via: https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html 
+
+then writ this in the terminal:
+
+conda create -n nnunet_env python=3.9 -y
+conda activate nnunet_env
+
+Install core Python packages:
+
+pip install numpy pandas scikit-image scikit-learn SimpleITK nibabel tifffile aicsimageio tqdm matplotlib
+
+
+⸻
+
+3. Install nnU-Net v2
+
+Clone nnU-Net repository:
+
+git clone https://github.com/MIC-DKFZ/nnUNet.git
+cd nnUNet
+
+Install nnU-Net:
+
+pip install -e .
+
+
+⸻
+
+4. Create nnU-Net Data Folders
+
+Run this inside your project directory:
+
+BASE_PATH=$PWD/nnUNet_data
+
+mkdir -p $BASE_PATH/nnUNet_raw
+mkdir -p $BASE_PATH/nnUNet_preprocessed
+mkdir -p $BASE_PATH/nnUNet_results
+
+Resulting structure:
+
+nnUNet_data/
+    nnUNet_raw/
+    nnUNet_preprocessed/
+    nnUNet_results/
+
+
+⸻
+
+5. Prepare the nnUNetIntegration Module
+	•	Save your NNUNetIntegration class in a file like nnunet_integration.py
+	•	Important: update dataset.json labels:
+
+"labels": {
+    "0": "background",
+    "1": "mHTT_aggregate",
+    "2": "CCT1_region",
+    "3": "colocalization"
+}
+
+
+⸻
+
+6. Prepare Your Data
+
+Supported formats:
+	•	.tif or .tiff multi-channel or single-channel stacks
+	•	.lif microscope files
+
+Folder example:
+
+/project_folder/E35/*.tif or *.lif
+
+Run data preparation:
+
+from nnunet_integration import NNUNetIntegration
+
+nnunet = NNUNetIntegration(base_dir="nnUNet_data")
+
+nnunet.prepare_training_data(image_files=["your_list_of_images"], mask_files=None)
+
+
+⸻
+
+7. Run Preprocessing
+
+Automatically done via:
+
+nnunet.train()
+
+
+⸻
+
+8. Run Training
+
+Also triggered by:
+
+nnunet.train()
+
+You can run this separately too if needed:
+
+nnUNetv2_train <task_id> 3d_fullres <fold> -tr nnUNetTrainer
+
+
+⸻
+
+9. Run Inference
+
+Example:
+
+masks = nnunet.inference("path_to_test_image.tif", "results")
+
+Outputs masks to:
+
+results/<image_name>/mHTT_mask.tif
+results/<image_name>/CCT1_mask.tif
+results/<image_name>/colocalization_mask.tif
+results/<image_name>/background_mask.tif
+
+
+⸻
+
+10. Run Colocalization Analysis
+
+If you have cellpose_masks.tif:
+
+cellpose_masks = imread("cellpose_masks.tif")
+results_df = nnunet.analyze_colocalization(masks, cellpose_masks)
+results_df.to_csv("results/colocalization_analysis.csv", index=False)
+
+
+⸻
+
+Final Checklist
+	•	Install Python env
+	•	Install nnU-Net v2
+	•	Create nnUNet_data folders
+	•	Use NNUNetIntegration with corrected labels
+	•	Prepare data
+	•	Run preprocessing + training
+	•	Run inference
+	•	Run colocalization analysis
+
+⸻
+
+Important Notes
+	•	GPU recommended! CPU is very slow.
+	•	Reuse nnUNet_preprocessed when possible to avoid repeating preprocessing.
+	•	dataset.json labels must match your mask classes.
+	•	Monitor RAM usage when running nnUNetv2_plan_and_preprocess on large images.
+
+⸻
+
+That’s it! If you follow this guide carefully, your nnUNetIntegration pipeline will be ready to run on any machine or server. If you have any remaining questions please refer to the nnunet documentation: https://github.com/MIC-DKFZ/nnUNet/blob/master/documentation/how_to_use_nnunet.md  
