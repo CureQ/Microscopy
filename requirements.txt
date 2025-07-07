@@ -8,7 +8,7 @@ CTkToolTip==0.8
 CTkColorPicker==0.9.0
 
 # Core Data Processing
-numpy==2.2.6
+numpy==1.26.4 # Or else the tiff file images can not be read with tifffile library
 Pillow==11.2.1
 scipy==1.15.3
 scikit-image==0.25.2
@@ -25,6 +25,9 @@ matplotlib==3.10.3
 
 # PDF Generation
 reportlab==4.4.1
+
+# Microscopy 3D images
+napari[all]
 
 # Note: tkinter is included with Python standard library
 # Note: threading, os, traceback, io are part of Python standard library

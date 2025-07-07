@@ -44,7 +44,7 @@ class ChannelInfoPage(ctk.CTkFrame):
 
     def validate_and_go_report(self):
         if self.validate_and_proceed():
-            self.controller.show_frame("ReportSettingsPage")
+            self.controller.show_frame("ReportPage")
 
 
     def tk_image_from_array(self, arr):
@@ -106,34 +106,6 @@ class ChannelInfoPage(ctk.CTkFrame):
             self.option_menus.append(menu)
             self.selections.append(menu_var)
 
-    # def validate_and_proceed(self):
-    #     selected = [s.get() for s in self.selections]
-    #     if "Select" in selected:
-    #         messagebox.showerror("Error", "Please select a type for each channel.")
-    #         return
-    #     self.controller.show_frame("NapariPage")
-            
-
-    # def validate_and_proceed(self):
-    #     selected = [s.get() for s in self.selections]
-
-    #     if "Select" in selected:
-    #         messagebox.showerror("Error", "Please select a type for each channel.")
-    #         return
-        
-    #     try:
-    #         aggregate_channel = selected.index("Aggregate")
-    #     except ValueError:
-    #         messagebox.showerror("Error", "Aggregate channel must be selected.")
-    #         return
-        
-    #     # Seçimi controller'a kaydet
-    #     self.controller.aggregate_channel = aggregate_channel
-    #     self.controller.selections = selected  # İstersen diğer seçimleri de kaydet
-
-    #     self.controller.show_frame("NapariPage")
-
-
     def validate_and_proceed(self):
         selected = [s.get() for s in self.selections]
 
@@ -147,6 +119,7 @@ class ChannelInfoPage(ctk.CTkFrame):
 
         # Seçimi controller'a kaydet
         self.controller.selections = selected
-    
-        self.controller.show_frame("NapariPage")
+        return True
+        # self.controller.show_frame("NapariPage")
+        # self.controller.show_frame("ReportPage")  # 🟢 dikkat: bu isim doğru olmalı
 
