@@ -1,5 +1,10 @@
 # Microscopy
-Analysis for microscopy images
+The Microscopy GUI performs segmentation and analysis on microscopy images.<br>
+The current main version provides the cell body detection application to analyze microscopy images and identify cell bodies in the provided samples.
+
+[The documentation for developers can be found here.](Cell_Body_Detection\DOCUMENTATION.md)
+
+[The documentation for users can be found here](Cell_Body_Detection\USER_GUIDE.md) and below in the User Guide.<br><br><br>
 
 # Cell Body Detection - User Guide
 
@@ -18,7 +23,13 @@ The Cell Body Detection application helps you:
 
 ### Installation
 
-1. **Download and install Python** version 3.12 or 3.13 (if not already installed) from [python.org](https://python.org)
+1. **Download and install Python** [version 3.12](https://www.python.org/downloads/release/python-31210/) (if not already installed) from [python.org](https://python.org)
+> Make sure you downloaded **Python version 3.12**!<br>
+> Check this with ```python --version``` in your CMD. <br>
+> <i>If you don't have Python installed yet, install it by typing ```python``` in your CMD.</i><br>
+> Python version 3.13 or higher will give you an error by installing the requirements.<br>
+> Python version 3.11 or lower will give you an error by trying to run the installation.<br>
+> [Follow this tutorial if you don't have Python version 3.12 activated.](https://www.youtube.com/watch?v=C5mn0WWKmGY&ab_channel=TheCodeCity)
 2. **Download zip of this microscopy folder**
 > a. Navigate to [_main_ branch](https://github.com/CureQ/Microscopy) of _Microscopy_ repository. <br>
 > b. Press green $${\color{green}<> Code}$$ button. <br>
