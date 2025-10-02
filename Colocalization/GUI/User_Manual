@@ -1,0 +1,133 @@
+Colocalization Analysis GUI for mHTT and CCT1
+
+This is a Python-based GUI to analyze colocalization between mutant Huntingtin (mHTT) aggregates and the CCT1 chaperone in 3D fluorescence microscopy images.
+
+The GUI is designed for biomedical researchers at the Prinses Máxima Centrum and collaborating institutions, and is described in the thesis “Colocalization patterns of mutant Huntingtin and the CTT1 chaperone”.
+
+It enables fully reproducible, semi-automated analysis without the need for coding.
+
+____
+
+⚠️ **IMPORTANT!**⚠️
+Before running the GUI, make sure you download the images to test the GUI from [this SharePoint link](https://icthva-my.sharepoint.com/:f:/r/personal/noah_wijnheijmer_hva_nl/Documents/afstuderen/run_example_images?csf=1&web=1&e=9Ngyu2).  
+Access can be requested via email to [noah.wijnheijmer@hva.nl](mailto:noah.wijnheijmer@hva.nl).
+
+⸻
+
+Features
+	•	Load multi-channel, z-stacked fluorescence microscopy images (.lif, .tiff)
+	•	Perform classical segmentation of mHTT aggregates (Otsu thresholding)
+	•	Quantify CCT1 enrichment in mHTT aggregates (intensity-based analysis)
+	•	Compute colocalization metrics:
+	•	Pearson’s r
+	•	Manders M1 / M2
+	•	Dice Similarity Coefficient
+	•	Intersection over Union (IoU)
+	•	Mann-Whitney U test
+	•	Cohen’s d (effect size)
+	•	Save quantitative results (CSV) and visualization overlays (PDF, images)
+	•	Optional: visualize 3D overlay
+	•	User-friendly GUI with step-by-step flow
+
+⸻
+
+Installation
+
+1. System Requirements
+	•	Operating System: Windows, macOS, or Linux
+	•	Python >= 3.9 (recommended: install via Anaconda)
+
+2. Create Python Environment
+
+conda create -n colocalization_gui python=3.9
+conda activate colocalization_gui
+
+3. Install Required Packages
+
+All dependencies are listed and maintained in the requirements.txt file in this folder. This can be done by typing the following in the terminal:
+
+
+pip install -r requirements.txt
+
+If this doesn't work, simply copy and paste the requirements into your environment:
+
+conda install [copy and paste all the dependencies from requirements.txt here]
+
+⸻
+
+Running the GUI
+
+in the terminal write: python3 GUI_final.py
+
+⸻
+
+# mHTT ↔ CCT1 Colocalization GUI  
+
+---
+
+## 1. What the program does
+Load a two-colour fluorescence image stack (mutant Huntingtin = **mHTT**, chaperone = **CCT1**) → clean up the images → **detect and quantify where the two signals overlap** (colocalized aggregates).  
+All calculations update instantly as you move the sliders.
+
+---
+
+## 2. Controls
+
+| Control | Plain-language meaning | When to change it |
+|---------|-----------------------|-------------------|
+| **Z-Slice** | Scroll through individual optical sections (slice 0 = top). Ignored if **Use maximum intensity projection** is ticked. | Browse planes when projection is **off**. |
+| **mHTT Factor** | Brightness cut-off for calling pixels “mHTT-positive”. Higher = stricter. | Raise to remove haze; lower to recover faint puncta. |
+| **CCT1 Factor** | Same idea, but for CCT1. | Tune independently because each channel has different brightness/noise. |
+| **Gaussian σ** | Amount of smoothing (blur width in pixels). Larger σ removes more noise but can merge spots. | Start ≈ 2 px; adjust while viewing. |
+| **Min Size** | Discards objects smaller than this many pixels. | Roughly 20 pixels equals the smallest single dot a 60× objective can truly resolve. |
+| **mHTT / CCT1 Color** | Overlay display colours only—no effect on calculations. | Pick any contrasting pair. |
+| **Show overlap only** <br>**(MUST be ON for counting amount of colocalized aggregates)** | **Turns on the algorithm that finds colocalized aggregates and displays only those pixels.** With the box unticked, the program *does not* detect or count overlap, and numeric metrics stay blank/zero. | **Tick whenever you want to detect and quantify colocalized aggregates.** Untick only to inspect single-channel signal. |
+| **Use maximum intensity projection** | Flattens the stack to one image (brightest pixel per x-y); ignores **Z-Slice**. | Tick for global statistics; untick for single-slice analysis. |
+
+> **Key point — Always tick *Show overlap only* to compute colocalized aggregates and populate metrics.**
+
+---
+
+## 3. Typical workflow when parameter tweaking is required (≈ 2 min)
+
+1. **Load** your CCT1 and mHTT files (make sure you load each under the correct channel).
+	•	Supported formats: .tiff, .lif
+	•	Load a multi-channel z-stacked image.
+2. Choose **projection** (tick) or **single slice** (untick + pick **Z-Slice**).  
+3. **Smooth:** set **Gaussian σ** to the lowest value that removes pixel-level noise.  
+4. **Threshold:** tweak **mHTT Factor** and **CCT1 Factor** until masks match true signal.  
+5. **Clean:** adjust **Min Size** to eliminate speckles.  
+6. **Detect overlap:** **tick *Show overlap only***—the program now highlights colocalized aggregates *and* updates all overlap metrics (Pearson, Manders, Dice, IoU, aggregate count, etc.).  
+7. **Record/export** metrics or masks once satisfied.  
+8. **Reuse the same settings where possible** for every replicate to keep results comparable.
+
+---
+
+## 4. Tips & pitfalls
+* **Forgetting to tick *Show overlap only*** → metrics stay zero.  
+* Excessive **σ** can falsely inflate overlap by blending neighbouring objects—use the smallest value that suppresses noise.  
+* Lowering **Factor** sliders always raises Manders/Dice; ensure that reflects biology, not background.
+* Adjust the minimum size slightly microscope pixel size is very different from the usual 6–7 µm sensor pixels.
+
+---
+⸻
+
+Limitations
+	•	Batch processing not supported (single-image analysis only).
+	•	CCT1 channel is analyzed using intensity enrichment; no object segmentation is performed for CCT1.
+	•	Human-in-the-loop is required:
+	•	Users must inspect visual overlays before trusting numerical outputs.
+	•	Designed for research-use only, not for clinical decision making.
+⸻
+Citation / Acknowledgements
+
+If you use this tool in your research, please cite the thesis by Noah Wijnheijmer:
+
+Wijnheijmer, N. (2025). Colocalization patterns of mutant Huntingtin and the CTT1 chaperone. Amsterdam University of Applied Sciences.
+
+⸻
+
+Disclaimer
+	•	This software is for research-use only.
+	•	It is not a medical device.
+	•	The user remains responsible for biological plausibility and verification of results.

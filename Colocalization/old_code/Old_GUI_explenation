@@ -1,0 +1,73 @@
+This GUI is inspired by the spotitpy implementation for an automatic tool for object based colocalization (https://github.com/alexiaales/SpotitPy?tab=readme-ov-file)
+to run the GUI as a CLI, you should define the hyperparameters first to run the colocalization analysis, this is done using the following format:
+
+python /Users/noahwijnheijmer/GUI/Custom_CLI.py \
+-i "/Users/noahwijnheijmer/Library/CloudStorage/OneDrive-HvA/afstuderen/Microscopy Data Huntingtin aggregates/Raw data #1/20240212_CKR_E10B_mHtt-HAQ97doxy48h_BafA1_HA-STAR580_CCCT1-STAR635P_A11-STAR460L_nucspotlive488_3.lif" \
+-o /Users/noahwijnheijmer/GUI/results \
+-m cyto \
+-f 2 \
+-u 3 \
+--pc1 90 \
+--pc2 80 \
+-t 5 \
+-s 2 \
+-w 1 \
+-b 15 \
+-g 3 \
+--auto on
+
+to run the analysis edit the paths to the path on your own device.
+
+## General Settings
+| Parameter | Value | Meaning |
+|-----------|-------|---------|
+| `-i`      | *Path to .lif file* | Input microscopy image |
+| `-o`      | *Path to output folder* | Output directory |
+| `-m`      | `cyto` | Cytoplasmic mode (optimized for cytoplasmic spot detection) |
+| `--auto`  | `on`   | Automated run without manual prompts |
+
+---
+
+## Image Smoothing
+| Parameter | Value | Meaning |
+|-----------|-------|---------|
+| `-f`      | `2`   | Gaussian filter sigma (amount of smoothing) |
+
+---
+
+## Thresholding & Spot Detection
+| Parameter | Value | Meaning |
+|-----------|-------|---------|
+| `-u`      | `3`   | Upper threshold factor (for adaptive thresholding) |
+| `--pc1`   | `90`  | First percentile cutoff (bright pixel threshold) |
+| `--pc2`   | `80`  | Second percentile cutoff (background suppression) |
+| `-t`      | `5`   | Absolute intensity threshold (minimum spot brightness) |
+
+---
+
+## Morphology & Segmentation
+| Parameter | Value | Meaning |
+|-----------|-------|---------|
+| `-s`      | `2`   | Minimum spot size (radius or morphological size) |
+| `-w`      | `1`   | Watershed segmentation (enabled to separate touching spots) |
+
+---
+
+## Background Correction & Post-processing
+| Parameter | Value | Meaning |
+|-----------|-------|---------|
+| `-b`      | `15`  | Background correction radius (for background subtraction) |
+| `-g`      | `3`   | Gap closing / dilation parameter (spot continuity) |
+
+---
+
+particle size is here set to: 15
+
+
+	• Works well for medium-sized protein aggregates
+	• Keeps sensitivity without overdetecting noise
+	• Compatible with TrackPy and wavelet filters used in SpotitPy
+
+If you observe over-segmentation or miss smaller foci, you can later try 11 or 9. For large aggregates, increase to 21 or 25.
+
+to run the GUI, simply also download the GUI.py file and run that in your terminal, for example: python /Users/noahwijnheijmer/Experimentation/GUI/Custom_GUI.py

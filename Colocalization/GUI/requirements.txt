@@ -1,0 +1,17 @@
+numpy
+matplotlib
+tifffile
+scikit-image
+opencv-python
+napari[all]
+PyQt5
+scipy
+imageio
+pandas
+h5py
+natsort
+qtpy
+magicgui
+aicsimageio
+nibabel
+SimpleITK

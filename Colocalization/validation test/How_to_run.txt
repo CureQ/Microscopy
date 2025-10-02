@@ -1,0 +1,112 @@
+Colocalization Analysis GUI for mHTT and CCT1
+
+This is a Python-based GUI to analyze colocalization between mutant Huntingtin (mHTT) aggregates and the CCT1 chaperone in 3D fluorescence microscopy images.
+
+The GUI is designed for biomedical researchers at the Prinses Máxima Centrum and collaborating institutions, and is described in the thesis “Colocalization patterns of mutant Huntingtin and the CTT1 chaperone”.
+
+It enables fully reproducible, semi-automated analysis without the need for coding.
+
+____
+
+⚠️ **IMPORTANT!** ⚠️ 
+Before running the GUI, make sure you download the images to test the GUI from [this SharePoint link](https://icthva-my.sharepoint.com/:f:/r/personal/noah_wijnheijmer_hva_nl/Documents/afstuderen/run_example_images?csf=1&web=1&e=9Ngyu2).  
+Access can be requested via email to [noah.wijnheijmer@hva.nl](mailto:noah.wijnheijmer@hva.nl).
+
+⸻
+
+Features
+	•	Load multi-channel, z-stacked fluorescence microscopy images (.lif, .tiff)
+	•	Perform classical segmentation of mHTT aggregates (Otsu thresholding)
+	•	Quantify CCT1 enrichment in mHTT aggregates (intensity-based analysis)
+	•	Compute colocalization metrics:
+	•	Pearson’s r
+	•	Manders M1 / M2
+	•	Dice Similarity Coefficient
+	•	Intersection over Union (IoU)
+	•	Mann-Whitney U test
+	•	Cohen’s d (effect size)
+	•	Save quantitative results (CSV) and visualization overlays (PDF, images)
+	•	Optional: visualize 3D overlay
+	•	User-friendly GUI with step-by-step flow
+
+⸻
+
+Installation
+
+1. System Requirements
+	•	Operating System: Windows, macOS, or Linux
+	•	Python >= 3.9 (recommended: install via Anaconda)
+
+2. Create Python Environment
+
+conda create -n colocalization_gui python=3.9
+conda activate colocalization_gui
+
+3. Install Required Packages
+
+All dependencies are listed and maintained in the requirements.txt file in this folder
+
+
+⸻
+
+Running the GUI
+
+python GUI_final.py
+
+
+⸻
+
+Usage Guide
+
+1. Load Image
+	•	Supported formats: .tiff, .lif
+	•	Load a multi-channel z-stacked image.
+
+2. Select Channels
+	•	Select channels for:
+	•	mHTT (typically Red)
+	•	CCT1 (typically Green)
+	•	Optional: nucleus, other channels
+	•	Scroll through z-slices to inspect.
+	•	Click Accept to continue.
+
+3. Hyperparameters & Segmentation
+	•	Adjust parameters if needed:
+	•	e.g. Otsu threshold tuning for mHTT.
+	•	Enable / disable Cellpose segmentation (optional).
+
+4. Run Analysis
+	•	Click Run Colocalization.
+	•	The pipeline will:
+	•	Segment mHTT aggregates (threshold-based).
+	•	Compute enrichment of CCT1 signal in mHTT regions.
+	•	Compute structural colocalization metrics.
+
+5. Save Results
+	•	Select output folder.
+	•	Outputs:
+	•	CSV of all computed metrics.
+	•	PDF report with visual overlays.
+	•	Optional 3D visualization.
+
+⸻
+
+Limitations
+	•	Batch processing not supported (single-image analysis only).
+	•	CCT1 channel is analyzed using intensity enrichment; no object segmentation is performed for CCT1.
+	•	Human-in-the-loop is required:
+	•	Users must inspect visual overlays before trusting numerical outputs.
+	•	Designed for research-use only, not for clinical decision making.
+⸻
+Citation / Acknowledgements
+
+If you use this tool in your research, please cite the thesis by Noah Wijnheijmer:
+
+Wijnheijmer, N. (2025). Colocalization patterns of mutant Huntingtin and the CTT1 chaperone. Amsterdam University of Applied Sciences.
+
+⸻
+
+Disclaimer
+	•	This software is for research-use only.
+	•	It is not a medical device.
+	•	The user remains responsible for biological plausibility and verification of results.
