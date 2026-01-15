@@ -178,6 +178,7 @@ def segment_and_merge(volume, min_size=500, merge_distance=15, z_compression_fac
     """
 
     # Z-compression input
+    print("Z compression factor:", z_compression_factor)
     if z_compression_factor is None:
         try:
             z_compression_factor = float(
@@ -1119,6 +1120,7 @@ def plot_convex_and_ellipses_3d(
         zs = np.full_like(xs, z_idx * vz * z_compression_factor, dtype=float)
         ys = _flip_over_x_axis(ys)
         ax.plot(xs, ys, zs, color="#1f6f3d", linewidth=1.6, alpha=0.95)
+    print(xs,ys)
 
     ax.set_box_aspect((1, 1, z_compression_factor))
     ax.set_xlabel("X (µm)")

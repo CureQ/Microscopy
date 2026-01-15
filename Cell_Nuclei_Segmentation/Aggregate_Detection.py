@@ -20,6 +20,7 @@ from skimage.measure import label, regionprops
 from notebook_file_picker import ensure_local_file
 
 
+
 def select_and_load_lif():
     """
     Selecting and loading a LIF file.
@@ -71,6 +72,9 @@ def select_aggregate_channel(img, aggregate_name="aggregate", prompt_for_names=T
     - Logs a message and returns None when no match is found
     """
     original_channels = [str(ch) for ch in img.channel_names]
+    print("\nOriginal channels:")
+    for i, ch in enumerate(original_channels):
+        print(f"[{i}] {ch}")
     if channel_map:
         new_channels = [channel_map.get(ch, ch) for ch in original_channels]
     else:
@@ -88,6 +92,9 @@ def select_aggregate_channel(img, aggregate_name="aggregate", prompt_for_names=T
         else:
             new_channels = original_channels
 
+    print("\nFinal channel names:")
+    for i, ch in enumerate(new_channels):
+        print(f"[{i}] {ch}")
     matches = [i for i, ch in enumerate(new_channels) if ch.lower() == aggregate_name.lower()]
     if not matches:
         print(f"No channel named '{aggregate_name}'.")
