@@ -1,4 +1,5 @@
 import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 import tifffile as tiff
 from datetime import datetime
