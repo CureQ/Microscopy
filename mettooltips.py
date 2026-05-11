@@ -799,6 +799,12 @@ class ViewerTab(QWidget):
         fv = QVBoxLayout(grp_file)
         self.btn_open = QPushButton("Open .LIF / .TIF bestand")
         self.btn_open.setObjectName("primary")
+        self.btn_open.setToolTip(
+            "Open een microscopie-bestand.\n"
+            "Ondersteunde formaten:\n"
+            "  • .LIF  — Leica Image File (meerdere series mogelijk)\n"
+            "  • .TIF / .TIFF — standaard TIFF (ook multi-channel/Z-stack)"
+        )
         self.btn_open.clicked.connect(self._open_file)
         fv.addWidget(self.btn_open)
         self.lbl_file = QLabel("Geen bestand geladen")
@@ -806,6 +812,11 @@ class ViewerTab(QWidget):
         self.lbl_file.setStyleSheet("color:#58a6ff; font-size:11px;")
         fv.addWidget(self.lbl_file)
         self.cmb_series = QComboBox()
+        self.cmb_series.setToolTip(
+            "Kies de te bekijken serie (experiment) binnen het geladen bestand.\n"
+            "LIF-bestanden kunnen meerdere opnames (series) bevatten;\n"
+            "TIF-bestanden hebben doorgaans maar één serie."
+        )
         self.cmb_series.currentIndexChanged.connect(self._series_changed)
         fv.addWidget(QLabel("Serie:"))
         fv.addWidget(self.cmb_series)
@@ -814,14 +825,29 @@ class ViewerTab(QWidget):
         grp_view = QGroupBox("🎨  Weergave-instellingen")
         vv = QFormLayout(grp_view)
         self.cmb_channel = QComboBox()
+        self.cmb_channel.setToolTip(
+            "Kies welk fluorescentiekanaal je wilt bekijken.\n"
+            "Elk kanaal komt overeen met een andere kleurstof of marker\n"
+            "(bijv. DAPI voor kernen, GFP voor eiwitten)."
+        )
         self.cmb_channel.currentIndexChanged.connect(self._refresh_image)
         vv.addRow("Kanaal:", self.cmb_channel)
         self.cmb_display = QComboBox()
         self.cmb_display.addItems(["Max Projectie", "Z-Slice"])
+        self.cmb_display.setToolTip(
+            "Max Projectie: toont de maximale pixelwaarde over alle Z-lagen.\n"
+            "  → Geeft een volledig overzicht van alle structuren in het volume.\n\n"
+            "Z-Slice: toont één specifieke Z-laag tegelijk.\n"
+            "  → Gebruik de schuifbalk om door de lagen te navigeren."
+        )
         self.cmb_display.currentIndexChanged.connect(self._toggle_view_mode)
         vv.addRow("Modus:", self.cmb_display)
         self.sld_z = QSlider(Qt.Horizontal)
         self.sld_z.setMinimum(0); self.sld_z.setMaximum(0)
+        self.sld_z.setToolTip(
+            "Schuif om door de Z-lagen (diepte) van de stack te bladeren.\n"
+            "Alleen actief in de modus 'Z-Slice'."
+        )
         self.sld_z.valueChanged.connect(self._refresh_image)
         self.sld_z.setEnabled(False)
         self.lbl_z = QLabel("Z: 0 / 0")
@@ -833,10 +859,27 @@ class ViewerTab(QWidget):
         self.cmb_cmap = QComboBox()
         self.cmb_cmap.addItems(["hot", "gray", "inferno", "viridis",
                                  "magma", "plasma", "cividis", "turbo"])
+        self.cmb_cmap.setToolTip(
+            "Kies de kleurkaart voor de weergave van het beeld:\n"
+            "  • hot      — zwart → rood → geel → wit (goed voor aggregaten)\n"
+            "  • gray     — grijswaarden (standaard microscopie)\n"
+            "  • inferno  — zwart → paars → oranje → wit\n"
+            "  • viridis  — donkerblauw → groen → geel (kleurblindveilig)\n"
+            "  • magma    — zwart → paars → roze → wit\n"
+            "  • plasma   — blauw → paars → geel\n"
+            "  • cividis  — blauw → groen → geel (kleurblindveilig)\n"
+            "  • turbo    — regenboog met betere perceptie"
+        )
         self.cmb_cmap.currentIndexChanged.connect(self._refresh_image)
         cv.addRow("Kleurkaart:", self.cmb_cmap)
         self.chk_autoscale = QCheckBox("Auto-schaal intensiteit")
         self.chk_autoscale.setChecked(True)
+        self.chk_autoscale.setToolTip(
+            "Als aangevinkt: past de helderheid automatisch aan op de\n"
+            "minimum- en maximumwaarde van het zichtbare beeld.\n\n"
+            "Als uitgevinkt: gebruikt een vaste schaal van 0 tot de\n"
+            "maximale pixelwaarde in het beeld."
+        )
         self.chk_autoscale.stateChanged.connect(self._refresh_image)
         cv.addWidget(self.chk_autoscale)
         lv.addWidget(grp_cmap)
@@ -978,11 +1021,16 @@ class PreprocessTab(QWidget):
             "Laadt de aanbevolen instellingen:\n"
             "• Achtergrondsubtractie AAN — Gaussiaan (σ=50)\n"
             "• Ruisonderdrukking AAN — Gaussiaan (σ=1.0)\n"
-            "• Alle overige stappen UIT"
+            "• Alle overige stappen UIT\n\n"
+            "Optimaal startpunt voor eiwit-aggregaat analyse in confocale microscopie."
         )
         btn_recommended.clicked.connect(self._set_recommended)
         qv.addWidget(btn_recommended)
         btn_reset_all = QPushButton("↺  Alles terugzetten")
+        btn_reset_all.setToolTip(
+            "Zet alle pre-processing stappen terug naar de fabrieksinstellingen\n"
+            "en toont het originele, onbewerkte beeld."
+        )
         btn_reset_all.clicked.connect(self._reset)
         qv.addWidget(btn_reset_all)
         lv.addWidget(grp_quick)
@@ -997,32 +1045,70 @@ class PreprocessTab(QWidget):
         # Normalisatie
         self.chk_norm = QCheckBox("Percentiel-normalisatie")
         self.chk_norm.setChecked(True)
+        self.chk_norm.setToolTip(
+            "Schaalt de pixelintensiteiten zodat pmin% de donkerste\n"
+            "en pmax% de helderste waarde wordt.\n\n"
+            "Vermindert de invloed van extreme (uitbijter) pixels\n"
+            "en maakt beelden van verschillende opnames vergelijkbaar."
+        )
         iv.addWidget(self.chk_norm)
         pn = QHBoxLayout()
         pn.addWidget(QLabel("pmin:"))
         self.spn_pmin = QDoubleSpinBox()
         self.spn_pmin.setRange(0, 49); self.spn_pmin.setValue(1.0); self.spn_pmin.setSingleStep(0.5)
+        self.spn_pmin.setToolTip(
+            "Onderste percentielpunt (%) voor normalisatie.\n"
+            "Pixels onder deze drempel worden op 0 gezet.\n"
+            "Standaard: 1.0% — filtert ruis in de donkere achtergrond."
+        )
         pn.addWidget(self.spn_pmin)
         pn.addWidget(QLabel("pmax:"))
         self.spn_pmax = QDoubleSpinBox()
         self.spn_pmax.setRange(51, 100); self.spn_pmax.setValue(99.9); self.spn_pmax.setSingleStep(0.5)
+        self.spn_pmax.setToolTip(
+            "Bovenste percentielpunt (%) voor normalisatie.\n"
+            "Pixels boven deze drempel worden op 1 gezet.\n"
+            "Standaard: 99.9% — voorkomt dat één heldere pixel\n"
+            "de schaal verpest."
+        )
         pn.addWidget(self.spn_pmax)
         iv.addLayout(pn)
         self._add_sep(iv)
 
         # Achtergrondsubtractie
         self.chk_bg = QCheckBox("Achtergrondsubtractie")
+        self.chk_bg.setToolTip(
+            "Verwijdert de diffuse achtergrondgloed uit het beeld.\n"
+            "Belangrijk wanneer het beeld een ongelijkmatige verlichtingsachtergrond heeft.\n\n"
+            "Aanbevolen bij aggregaat-analyse om vals-positieve detecties te vermijden."
+        )
         iv.addWidget(self.chk_bg)
         bg_type_row = QHBoxLayout()
         bg_type_row.addWidget(QLabel("Methode:"))
         self.cmb_bg_method = QComboBox()
         self.cmb_bg_method.addItems(["Rolling Ball (morfologisch)", "Gaussiaan"])
+        self.cmb_bg_method.setToolTip(
+            "Rolling Ball (morfologisch):\n"
+            "  Schat achtergrond via morfologische opening (wit tophat).\n"
+            "  Goed voor lokale, ongelijkmatige achtergronden.\n\n"
+            "Gaussiaan:\n"
+            "  Past een grote Gaussiaanse blur toe als schatting van de achtergrond.\n"
+            "  Snel en effectief bij geleidelijk variërende achtergronden.\n"
+            "  Aanbevolen voor aggregaat-analyse (σ ≈ 50 px)."
+        )
         bg_type_row.addWidget(self.cmb_bg_method)
         iv.addLayout(bg_type_row)
         bg_row = QHBoxLayout()
         bg_row.addWidget(QLabel("Radius/σ (px):"))
         self.spn_bg_radius = QSpinBox()
         self.spn_bg_radius.setRange(5, 500); self.spn_bg_radius.setValue(30)
+        self.spn_bg_radius.setToolTip(
+            "Straal (in pixels) voor de achtergrondschatting.\n\n"
+            "Rolling Ball: groter = grovere achtergrondschatting.\n"
+            "Gaussiaan (σ): groter = meer blur, meer grote structuren worden als achtergrond gezien.\n\n"
+            "Richtlijn: minstens 2–3× de maximale aggregaatgrootte.\n"
+            "Aanbevolen bij Gaussiaan: σ = 50 px."
+        )
         bg_row.addWidget(self.spn_bg_radius)
         iv.addLayout(bg_row)
         self._add_sep(iv)
@@ -1030,18 +1116,39 @@ class PreprocessTab(QWidget):
         # Top-hat
         self.chk_tophat = QCheckBox("Top-Hat Filter")
         self.chk_tophat.setChecked(True)
+        self.chk_tophat.setToolTip(
+            "Versterkt kleine, heldere structuren (aggregaten) ten opzichte\n"
+            "van de omgevende achtergrond.\n\n"
+            "Werkt door de morfologische opening van het beeld af te trekken,\n"
+            "waardoor alleen structuren kleiner dan de opgegeven radius overblijven."
+        )
         iv.addWidget(self.chk_tophat)
         th_mode_row = QHBoxLayout()
         th_mode_row.addWidget(QLabel("Modus:"))
         self.cmb_tophat_mode = QComboBox()
         self.cmb_tophat_mode.addItems(["Enkelvoudig", "Multi-schaal (aanbevolen)"])
         self.cmb_tophat_mode.setCurrentIndex(1)
+        self.cmb_tophat_mode.setToolTip(
+            "Enkelvoudig:\n"
+            "  Gebruikt één vaste straal voor de top-hat filter.\n\n"
+            "Multi-schaal (aanbevolen):\n"
+            "  Combineert drie stralen tegelijk: r-2, r en r+3.\n"
+            "  Detecteert aggregaten van verschillende groottes in één stap.\n"
+            "  Robuuster bij heterogene preparaten."
+        )
         th_mode_row.addWidget(self.cmb_tophat_mode)
         iv.addLayout(th_mode_row)
         th_row = QHBoxLayout()
         th_row.addWidget(QLabel("Radius (px):"))
         self.spn_tophat = QSpinBox()
         self.spn_tophat.setRange(1, 50); self.spn_tophat.setValue(6)
+        self.spn_tophat.setToolTip(
+            "Straal van het structurerend element (schijf) in pixels.\n\n"
+            "Kies een waarde iets groter dan de typische aggregaatstraal.\n"
+            "Te klein: achtergrond wordt niet goed onderdrukt.\n"
+            "Te groot: kleine aggregaten worden weggefilterd.\n"
+            "Typische waarde: 4–10 px afhankelijk van de microscopie-resolutie."
+        )
         th_row.addWidget(self.spn_tophat)
         iv.addLayout(th_row)
         info_th = QLabel("Multi-schaal: gebruikt r, r+3, r-2 tegelijk")
@@ -1051,18 +1158,38 @@ class PreprocessTab(QWidget):
 
         # Denoise
         self.chk_denoise = QCheckBox("Ruisonderdrukking")
+        self.chk_denoise.setToolTip(
+            "Vermindert ruis in het beeld vóór segmentatie.\n"
+            "Vermindert vals-positieve detecties door ruis-pieken.\n\n"
+            "Let op: te veel onderdrukking kan kleine aggregaten vervagen."
+        )
         iv.addWidget(self.chk_denoise)
         dn_mode_row = QHBoxLayout()
         dn_mode_row.addWidget(QLabel("Methode:"))
         self.cmb_denoise_mode = QComboBox()
         self.cmb_denoise_mode.addItems(["Gaussiaan", "Bilateral (behoudt randen) ★"])
         self.cmb_denoise_mode.setCurrentIndex(1)
+        self.cmb_denoise_mode.setToolTip(
+            "Gaussiaan:\n"
+            "  Snelle, isotrope vervaging. Eenvoudig maar vervaagt ook randen.\n"
+            "  Goed voor hoog-ruisige beelden waar randbehoud minder belangrijk is.\n\n"
+            "Bilateral (★ aanbevolen):\n"
+            "  Onderdrukt ruis terwijl scherpe randen (aggregaatgrenzen) behouden blijven.\n"
+            "  Langzamer maar kwalitatief beter voor aggregaat-detectie."
+        )
         dn_mode_row.addWidget(self.cmb_denoise_mode)
         iv.addLayout(dn_mode_row)
         dn_row = QHBoxLayout()
         dn_row.addWidget(QLabel("Sigma:"))
         self.spn_sigma = QDoubleSpinBox()
         self.spn_sigma.setRange(0.1, 10.0); self.spn_sigma.setValue(0.8); self.spn_sigma.setSingleStep(0.1)
+        self.spn_sigma.setToolTip(
+            "Sterkte van de ruisonderdrukking (standaardafwijking van de Gaussiaan).\n\n"
+            "Gaussiaan: hogere sigma = meer vervaging.\n"
+            "Bilateral: hogere sigma = groter ruimtelijk bereik van de filter.\n\n"
+            "Typische waarden: 0.5–2.0.\n"
+            "Begin laag (0.8) en verhoog alleen als er veel ruis zichtbaar is."
+        )
         dn_row.addWidget(self.spn_sigma)
         iv.addLayout(dn_row)
         self._add_sep(iv)
@@ -1074,6 +1201,11 @@ class PreprocessTab(QWidget):
 
         btn_apply = QPushButton("▶  Pre-processing toepassen")
         btn_apply.setObjectName("primary")
+        btn_apply.setToolTip(
+            "Past alle aangevinkte pre-processing stappen toe op het huidige beeld\n"
+            "in de volgorde: achtergrondsubtractie → top-hat → ruisonderdrukking → normalisatie.\n\n"
+            "Het resultaat wordt rechts getoond en doorgegeven aan de segmentatie-tabs."
+        )
         btn_apply.clicked.connect(self._apply)
         lv.addWidget(btn_apply)
         lv.addStretch()
@@ -1340,12 +1472,28 @@ class CellposeTab(QWidget):
         self.cmb_model = QComboBox()
         self.cmb_model.addItems(["cyto2", "cyto", "nuclei", "cyto3"])
         self.cmb_model.setCurrentText("cyto2")
+        self.cmb_model.setToolTip(
+            "Kies het Cellpose-model passend bij je preparaat:\n\n"
+            "  • cyto2   — verbeterd cytoplasma-model (aanbevolen voor cellen)\n"
+            "  • cyto    — origineel cytoplasma-model\n"
+            "  • nuclei  — geoptimaliseerd voor celkernen (DAPI/Hoechst)\n"
+            "  • cyto3   — nieuwste generatie cytoplasma-model\n\n"
+            "Probeer cyto2 als startpunt voor de meeste cellijnen."
+        )
         mf.addRow("Model:", self.cmb_model)
 
         self.spn_diameter = QSpinBox()
         self.spn_diameter.setRange(0, 999)
         self.spn_diameter.setValue(80)
         self.spn_diameter.setSpecialValueText("Auto")
+        self.spn_diameter.setToolTip(
+            "Verwachte celdiameter in pixels.\n\n"
+            "Stel in op 0 voor automatische schatting door Cellpose.\n"
+            "Bij handmatige opgave: meet een representatieve cel in de viewer\n"
+            "en vul de diameter in pixels in.\n\n"
+            "Te klein: cellen worden gesplitst.\n"
+            "Te groot: meerdere cellen worden samengevoegd."
+        )
         mf.addRow("Celdiameter (px, 0=auto):", self.spn_diameter)
 
         lv.addWidget(grp_model)
@@ -1357,12 +1505,26 @@ class CellposeTab(QWidget):
         self.spn_flow.setRange(0.1, 1.0)
         self.spn_flow.setSingleStep(0.05)
         self.spn_flow.setValue(0.8)
+        self.spn_flow.setToolTip(
+            "Flow threshold: maximaal toegestane fout in de optische stroomvelden.\n\n"
+            "Lager (bijv. 0.4): accepteert meer imperfecte segmentaties → meer cellen\n"
+            "Hoger (bijv. 0.9): strenger, alleen goed-gevormde maskers → minder cellen\n\n"
+            "Standaard: 0.8 — goed startpunt voor de meeste preparaten.\n"
+            "Verlaag als te weinig cellen worden gevonden."
+        )
         tf.addRow("Flow threshold:", self.spn_flow)
 
         self.spn_cellprob = QDoubleSpinBox()
         self.spn_cellprob.setRange(-8.0, 6.0)
         self.spn_cellprob.setSingleStep(0.5)
         self.spn_cellprob.setValue(-4.0)
+        self.spn_cellprob.setToolTip(
+            "Cel-kansdrempel: minimale voorspelde kans om als cel te worden meegenomen.\n\n"
+            "Lager (bijv. -6.0): meer pixels worden als cel gezien → grotere maskers\n"
+            "Hoger (bijv. 0.0): alleen de meest zekere gebieden → kleinere/minder maskers\n\n"
+            "Standaard: -4.0 — liberale instelling die ook zwak-gelabelde cellen meeneemt.\n"
+            "Verhoog als te veel achtergrond als cel wordt gedetecteerd."
+        )
         tf.addRow("Cellprob threshold:", self.spn_cellprob)
 
         btn_reset = QPushButton("↺  Herstel standaardwaarden")
@@ -1387,6 +1549,14 @@ class CellposeTab(QWidget):
         self.btn_run = QPushButton("▶  Cellichamen segmenteren")
         self.btn_run.setObjectName("primary")
         self.btn_run.setEnabled(HAS_CELLPOSE)
+        self.btn_run.setToolTip(
+            "Start de Cellpose cellichaam-segmentatie op het huidige beeld.\n\n"
+            "Cellpose berekent een max-projectie over alle Z-lagen en segmenteert\n"
+            "de cellichamen automatisch op basis van het gekozen model.\n\n"
+            "Het resulterende binaire masker wordt gebruikt om aggregaat-detecties\n"
+            "te beperken tot het cellichaam (achtergrond wordt gemaskeerd).\n\n"
+            "Vereist: pip install cellpose"
+        )
         self.btn_run.clicked.connect(self._run)
         lv.addWidget(self.btn_run)
 
@@ -1410,6 +1580,11 @@ class CellposeTab(QWidget):
         lv.addWidget(grp_stats)
 
         btn_export = QPushButton("💾  Exporteer celmasker als TIFF")
+        btn_export.setToolTip(
+            "Slaat het gesegmenteerde celmasker op als TIFF-bestand.\n\n"
+            "Het masker is binair: wit (255) = cellichaam, zwart (0) = achtergrond.\n"
+            "Kan later opnieuw worden ingeladen of gebruikt voor batch-verwerking."
+        )
         btn_export.clicked.connect(self._export_mask)
         lv.addWidget(btn_export)
 
@@ -1808,6 +1983,12 @@ class DeepLearningTab(QWidget):
         ens_thr_row = QHBoxLayout()
         self.chk_auto_thr = QCheckBox("Auto-threshold (gemiddeld uit modellen)")
         self.chk_auto_thr.setChecked(True)
+        self.chk_auto_thr.setToolTip(
+            "Als aangevinkt: gebruikt automatisch de optimale threshold\n"
+            "die tijdens de training van elk model is bepaald.\n"
+            "De uiteindelijke threshold is het gemiddelde over alle folds.\n\n"
+            "Aanbevolen voor de meeste situaties."
+        )
         self.chk_auto_thr.toggled.connect(self._on_auto_thr_toggled)
         ens_thr_row.addWidget(self.chk_auto_thr)
         ev.addLayout(ens_thr_row)
@@ -1819,6 +2000,13 @@ class DeepLearningTab(QWidget):
         self.spn_ens_threshold.setValue(0.5)
         self.spn_ens_threshold.setSingleStep(0.05)
         self.spn_ens_threshold.setEnabled(False)
+        self.spn_ens_threshold.setToolTip(
+            "Handmatige threshold voor de ensemble-kanskaart (0.01–0.99).\n\n"
+            "Pixels met een voorspelde kans ≥ threshold worden als aggregaat gelabeld.\n\n"
+            "Lager (bijv. 0.3): meer/grotere detecties, meer vals-positieven.\n"
+            "Hoger (bijv. 0.7): minder/kleinere detecties, minder vals-positieven.\n\n"
+            "Alleen actief als 'Auto-threshold' is uitgevinkt."
+        )
         ens_thr2_row.addWidget(self.spn_ens_threshold)
         ev.addLayout(ens_thr2_row)
 
@@ -1834,6 +2022,14 @@ class DeepLearningTab(QWidget):
         device_row.addWidget(QLabel("Device:"))
         self.cmb_device = QComboBox()
         self.cmb_device.addItems(["auto", "cpu", "cuda", "mps"])
+        self.cmb_device.setToolTip(
+            "Kies op welke hardware de inferentie wordt uitgevoerd:\n\n"
+            "  • auto  — kiest automatisch GPU (cuda) als beschikbaar, anders cpu\n"
+            "  • cpu   — gebruik de processor (langzamer, altijd beschikbaar)\n"
+            "  • cuda  — gebruik een NVIDIA GPU (veel sneller, vereist CUDA-driver)\n"
+            "  • mps   — gebruik Apple Silicon GPU (M1/M2/M3 Mac)\n\n"
+            "Bij CUDA-fouten: stel in op 'cpu' als tijdelijke oplossing."
+        )
         device_row.addWidget(self.cmb_device)
         ev.addLayout(device_row)
 
@@ -1845,11 +2041,24 @@ class DeepLearningTab(QWidget):
         self.spn_min_area = QSpinBox()
         self.spn_min_area.setRange(1, 9999)
         self.spn_min_area.setValue(5)
+        self.spn_min_area.setToolTip(
+            "Minimaal oppervlak (in pixels²) van een gedetecteerd object.\n\n"
+            "Objecten kleiner dan deze waarde worden verwijderd als ruis.\n\n"
+            "Te laag: ruis-pieken worden meegenomen als vals-positieven.\n"
+            "Te hoog: kleine echte aggregaten worden weggefilterd.\n\n"
+            "Typische waarde: 5–50 px² afhankelijk van de microscopie-resolutie."
+        )
         pf.addRow("Min oppervlak (px²):", self.spn_min_area)
 
         self.spn_max_area = QSpinBox()
         self.spn_max_area.setRange(1, 999999)
         self.spn_max_area.setValue(50000)
+        self.spn_max_area.setToolTip(
+            "Maximaal oppervlak (in pixels²) van een gedetecteerd object.\n\n"
+            "Objecten groter dan deze waarde worden verwijderd.\n"
+            "Voorkomt dat grote artefacten (bijv. dode cellen, debris) worden meegenomen.\n\n"
+            "Stel hoog in als je ook grote aggregaatclusters wilt detecteren."
+        )
         pf.addRow("Max oppervlak (px²):", self.spn_max_area)
 
         lv.addWidget(grp_post)
@@ -1858,18 +2067,58 @@ class DeepLearningTab(QWidget):
         ovf = QFormLayout(grp_ov)
         self.chk_show_circles = QCheckBox("Teken contouren")
         self.chk_show_circles.setChecked(True)
+        self.chk_show_circles.setToolTip(
+            "Tekent de omtreklijn van elk gedetecteerd object over het beeld.\n"
+            "Maakt de exacte grenzen van de segmentatie zichtbaar."
+        )
         self.chk_show_numbers = QCheckBox("Toon nummers")
         self.chk_show_numbers.setChecked(True)
+        self.chk_show_numbers.setToolTip(
+            "Toont het ID-nummer van elk object in het centrum van de contour.\n"
+            "Handig om specifieke objecten terug te vinden in de CSV-export."
+        )
         self.chk_show_fill    = QCheckBox("Gevuld gebied")
         self.chk_show_fill.setChecked(True)
+        self.chk_show_fill.setToolTip(
+            "Kleurt het oppervlak van elk gedetecteerd object in met een semi-transparante kleur.\n"
+            "Geeft een beter overzicht van de totale segmentatie dan alleen contouren."
+        )
         self.cmb_circle_color = QComboBox()
         self.cmb_circle_color.addItems(["#00ffcc","#ff4466","#ffff00","#ffffff","#00aaff","#ff8800"])
+        self.cmb_circle_color.setToolTip(
+            "Kleur van de getekende contouren:\n"
+            "  #00ffcc — cyaan (standaard, goed zichtbaar op donkere achtergrond)\n"
+            "  #ff4466 — rood/roze\n"
+            "  #ffff00 — geel\n"
+            "  #ffffff — wit\n"
+            "  #00aaff — blauw\n"
+            "  #ff8800 — oranje"
+        )
         self.spn_circle_lw  = QDoubleSpinBox()
         self.spn_circle_lw.setRange(0.3, 5); self.spn_circle_lw.setValue(1.2)
+        self.spn_circle_lw.setToolTip(
+            "Lijnbreedte van de getekende contouren in punten.\n\n"
+            "Dunner (0.3–1.0): minder opvallend, meer detail zichtbaar.\n"
+            "Dikker (2.0–5.0): beter zichtbaar bij kleine objecten of exportafbeeldingen."
+        )
         self.spn_font_size  = QDoubleSpinBox()
         self.spn_font_size.setRange(3, 16); self.spn_font_size.setValue(6.5)
+        self.spn_font_size.setToolTip(
+            "Lettergrootte van de object-ID-nummers in punten.\n\n"
+            "Pas aan op basis van de grootte van de objecten in het beeld:\n"
+            "klein voor kleine aggregaten (4–6), groter voor cellen (8–12)."
+        )
         self.cmb_cmap       = QComboBox()
         self.cmb_cmap.addItems(["hot","gray","inferno","magma","viridis","plasma"])
+        self.cmb_cmap.setToolTip(
+            "Kleurkaart voor de achtergrondafbeelding in de resultatenweergave.\n\n"
+            "  • hot     — zwart → rood → wit (goed voor fluorescentiemicroscopie)\n"
+            "  • gray    — grijswaarden\n"
+            "  • inferno — zwart → paars → oranje → wit\n"
+            "  • magma   — zwart → paars → roze → wit\n"
+            "  • viridis — donkerblauw → groen → geel (kleurblindveilig)\n"
+            "  • plasma  — blauw → paars → geel"
+        )
         ovf.addWidget(self.chk_show_circles)
         ovf.addWidget(self.chk_show_numbers)
         ovf.addWidget(self.chk_show_fill)
@@ -1881,6 +2130,16 @@ class DeepLearningTab(QWidget):
 
         self.btn_run_ensemble = QPushButton("▶  Ensemble Segmentatie uitvoeren")
         self.btn_run_ensemble.setObjectName("primary")
+        self.btn_run_ensemble.setToolTip(
+            "Start de ensemble deep learning segmentatie op het huidige beeld.\n\n"
+            "Het algoritme:\n"
+            "  1. Laadt alle model_fold*.pth bestanden uit de geselecteerde map\n"
+            "  2. Voert inferentie uit op elk model (eventueel met TTA)\n"
+            "  3. Middelt de kanskaarten van alle modellen\n"
+            "  4. Drempelt de gemiddelde kanskaart (threshold)\n"
+            "  5. Past morfologische filtering toe (min/max oppervlak)\n\n"
+            "Let op: dit kan enkele minuten duren op een CPU."
+        )
         self.btn_run_ensemble.clicked.connect(self._run_ensemble)
         lv.addWidget(self.btn_run_ensemble)
 
@@ -1903,10 +2162,27 @@ class DeepLearningTab(QWidget):
         lv.addWidget(grp_stats)
 
         btn_csv = QPushButton("💾  Exporteer CSV")
+        btn_csv.setToolTip(
+            "Exporteert de eigenschappen van alle gedetecteerde objecten naar een CSV-bestand.\n\n"
+            "Kolommen per object:\n"
+            "  • id, x, y         — identificatie en positie (centroïde)\n"
+            "  • area_px2         — oppervlak in pixels²\n"
+            "  • mean/max_intensity — gemiddelde en maximale pixelintensiteit\n"
+            "  • eccentricity     — mate van ellipsvorm (0=cirkel, 1=lijnstuk)\n"
+            "  • perimeter        — omtreklengte in pixels\n"
+            "  • solidity         — vulgraad (convex hull)\n"
+            "  • radius_px        — equivalente straal"
+        )
         btn_csv.clicked.connect(self._export_csv)
         lv.addWidget(btn_csv)
 
         btn_img = QPushButton("🖼  Exporteer geannoteerd beeld")
+        btn_img.setToolTip(
+            "Slaat een afbeelding op met het originele beeld en het geannoteerde\n"
+            "segmentatieresultaat naast elkaar (PNG of TIFF).\n\n"
+            "De afbeelding toont de contouren en kleuring zoals ingesteld\n"
+            "in de Overlay-opties."
+        )
         btn_img.clicked.connect(self._export_image)
         lv.addWidget(btn_img)
 
@@ -2182,26 +2458,55 @@ class CorrectionTab(QWidget):
 
         self.btn_load_gt = QPushButton("📂  Laad GT-masker")
         self.btn_load_gt.setObjectName("primary")
+        self.btn_load_gt.setToolTip(
+            "Laad een handmatig geannoteerd ground-truth masker (TIFF-bestand).\n\n"
+            "Dit masker bevat de 'correcte' segmentatie waartegen de\n"
+            "DL-detecties worden vergeleken.\n\n"
+            "Wit (255) = aggregaat aanwezig, Zwart (0) = geen aggregaat."
+        )
         self.btn_load_gt.clicked.connect(self._load_gt_mask)
         av.addWidget(self.btn_load_gt)
 
         self.btn_refresh = QPushButton("🔄  Vernieuw / haal DL-resultaat op")
+        self.btn_refresh.setToolTip(
+            "Haalt het laatste segmentatieresultaat op uit de Deep Learning-tab\n"
+            "en vergelijkt dit automatisch met het geladen GT-masker.\n\n"
+            "Groene contouren = DL-detectie overlapt met GT (terecht positief).\n"
+            "Rode contouren = DL-detectie overlapt NIET met GT (mogelijk fout-positief).\n"
+            "Blauwe contouren = GT-regio (handmatige annotatie)."
+        )
         self.btn_refresh.clicked.connect(self._auto_classify_and_draw)
         self.btn_refresh.setEnabled(False)
         av.addWidget(self.btn_refresh)
 
         self.btn_reset = QPushButton("↺  Reset alle correcties")
+        self.btn_reset.setToolTip(
+            "Zet alle handmatige correcties terug naar de automatische classificatie.\n"
+            "Alle groene/rode statussen worden opnieuw berekend op basis\n"
+            "van de overlap met het GT-masker."
+        )
         self.btn_reset.clicked.connect(self._reset_corrections)
         self.btn_reset.setEnabled(False)
         av.addWidget(self.btn_reset)
 
         self.btn_send = QPushButton("✅  Stuur gecorrigeerd masker naar Validatie")
         self.btn_send.setObjectName("primary")
+        self.btn_send.setToolTip(
+            "Stuurt het gecorrigeerde masker (na jouw aanpassingen) door\n"
+            "naar de Validatie-tab voor kwantitatieve evaluatie.\n\n"
+            "Goedgekeurde regio's + actieve GT-regio's worden samengevoegd\n"
+            "tot het definitieve gecorrigeerde masker."
+        )
         self.btn_send.clicked.connect(self._send_to_validation)
         self.btn_send.setEnabled(False)
         av.addWidget(self.btn_send)
 
         self.btn_save_mask = QPushButton("💾  Sla gecorrigeerd masker op")
+        self.btn_save_mask.setToolTip(
+            "Slaat het gecorrigeerde masker op als TIFF-bestand.\n"
+            "Dit masker kan later opnieuw worden geladen als GT-masker\n"
+            "of worden gebruikt voor verdere analyse."
+        )
         self.btn_save_mask.clicked.connect(self._save_corrected_mask)
         self.btn_save_mask.setEnabled(False)
         av.addWidget(self.btn_save_mask)
@@ -2862,16 +3167,37 @@ class ValidationTab(QWidget):
 
         self.btn_load_gt = QPushButton("📂  Laad Ground-Truth Masker")
         self.btn_load_gt.setObjectName("primary")
+        self.btn_load_gt.setToolTip(
+            "Laad een handmatig geannoteerd ground-truth masker (TIFF-bestand).\n\n"
+            "Dit masker wordt gebruikt als referentie voor de validatie.\n"
+            "Wit (255) = aggregaat aanwezig, Zwart (0) = geen aggregaat.\n\n"
+            "Tip: het gecorrigeerde masker uit Tab 5 wordt automatisch ingeladen\n"
+            "als je dat masker doorstuurt via de Corrigeer-tab."
+        )
         self.btn_load_gt.clicked.connect(self._load_gt_mask)
         av.addWidget(self.btn_load_gt)
 
         self.btn_compare = QPushButton("📊  Vergelijk Resultaat")
         self.btn_compare.setEnabled(False)
+        self.btn_compare.setToolTip(
+            "Berekent validatiemetrieken door het DL-segmentatieresultaat\n"
+            "te vergelijken met het geladen ground-truth masker.\n\n"
+            "Berekende metrieken:\n"
+            "  • F1/Dice  — harmonisch gemiddelde van precisie en recall\n"
+            "  • IoU      — overlap gedeeld door de unie (Jaccard-index)\n"
+            "  • Precisie — fractie van detecties die correct is\n"
+            "  • Recall   — fractie van echte aggregaten die gevonden is\n"
+            "  • TP/FP/FN — terecht positief / fout-positief / fout-negatief (pixels)"
+        )
         self.btn_compare.clicked.connect(self._run_comparison)
         av.addWidget(self.btn_compare)
 
         self.btn_export = QPushButton("💾  Exporteer Rapport (CSV)")
         self.btn_export.setEnabled(False)
+        self.btn_export.setToolTip(
+            "Exporteert de validatiemetrieken naar een CSV-bestand.\n"
+            "Handig voor het bijhouden van resultaten over meerdere beelden of runs."
+        )
         self.btn_export.clicked.connect(self._export_csv)
         av.addWidget(self.btn_export)
 
