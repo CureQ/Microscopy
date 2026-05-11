@@ -1,0 +1,64 @@
+# ============================================================
+#  Protein Aggregate Analyzer — Requirements
+#  Bestand: Gecorrigeerd_tabje_werkend.py
+# ============================================================
+#
+#  Installeer verplichte pakketten:
+#      pip install -r requirements.txt
+#
+#  Voor optionele deep-learning / Leica-ondersteuning, zie
+#  de secties onderaan dit bestand.
+# ============================================================
+
+
+# ------------------------------------------------------------
+#  VERPLICHT — de applicatie start niet zonder deze pakketten
+# ------------------------------------------------------------
+
+# GUI-framework
+PyQt5>=5.15.0
+
+# Numeriek & wetenschappelijk
+numpy>=1.23.0
+scipy>=1.9.0
+
+# Beeldverwerking
+scikit-image>=0.19.0
+
+# Visualisatie (Qt5-backend vereist)
+matplotlib>=3.5.0
+
+# TIFF-bestanden lezen/schrijven
+tifffile>=2022.2.9
+
+
+# ------------------------------------------------------------
+#  OPTIONEEL — .LIF bestanden (Leica confocal microscopen)
+# ------------------------------------------------------------
+#  Verwijder het hekje om readlif te installeren:
+# readlif>=0.6.5
+
+
+# ------------------------------------------------------------
+#  OPTIONEEL — Deep Learning (Tab 4 / Ensemble segmentatie)
+# ------------------------------------------------------------
+#  PyTorch: installeer de versie die bij jouw CUDA-versie past.
+#  Zie https://pytorch.org/get-started/locally/ voor de juiste
+#  installatiecommando's.
+#
+#  CPU-only (eenvoudigste optie):
+# torch>=1.13.0
+# torchvision>=0.14.0
+#
+#  Met CUDA-ondersteuning (aanbevolen voor GPU):
+#  Installeer handmatig via de PyTorch-website, bijv.:
+#      pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+#
+#  Encoder-/decoder-modellen voor segmentatie:
+# segmentation-models-pytorch>=0.3.3
+
+
+# ------------------------------------------------------------
+#  OPTIONEEL — Cellpose (Tab 3, cellichamen detectie)
+# ------------------------------------------------------------
+# cellpose>=2.2.0
