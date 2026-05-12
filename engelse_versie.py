@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Protein Aggregate Analyzer — Custom Versie
+Protein Aggregate Analyzer — Custom Version
 =====================================================
-Aangepaste versie voor de eindgebruiker:
-  ★ Tab 1, 2 en 3 (Viewer, Pre-processing, Cellichamen) behouden
-  ★ Tab 4 (Traditionele Segmentatie) verwijderd
-  ★ Tab 5 (Deep Learning) bevat nu exclusief de Ensemble methode
-  ★ Tab 6 (Validatie) aangepast voor uitsluitend Deep Learning vergelijking
+Customised version for the end user:
+  ★ Tabs 1, 2 and 3 (Viewer, Pre-processing, Cell Bodies) retained
+  ★ Tab 4 (Traditional Segmentation) removed
+  ★ Tab 5 (Deep Learning) now contains exclusively the Ensemble method
+  ★ Tab 6 (Validation) adapted for Deep Learning comparison only
 
-Vereisten: PyQt5, numpy, scipy, scikit-image, matplotlib, tifffile
-Optioneel:  readlif (voor .lif bestanden), torch, segmentation_models_pytorch, cellpose
+Requirements: PyQt5, numpy, scipy, scikit-image, matplotlib, tifffile
+Optional:  readlif (for .lif files), torch, segmentation_models_pytorch, cellpose
 """
 
 import sys
@@ -87,7 +87,7 @@ except ImportError:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  KLEURTHEMA  —  Professional Dark UI
+#  COLOR THEME  —  Professional Dark UI
 # ═══════════════════════════════════════════════════════════════════════════════
 DARK_THEME = """
 /* ── Base ─────────────────────────────────────────────────────────────────── */
@@ -546,7 +546,7 @@ class ImageLoader:
     @staticmethod
     def _load_lif(filepath: str) -> List[ImageStack]:
         if not HAS_READLIF:
-            raise ImportError("readlif is niet geïnstalleerd.\nInstalleer met: pip install readlif")
+            raise ImportError("readlif is not installed.\nInstall with: pip install readlif")
         lif = LifFile(filepath)
         stacks = []
         for img in lif.get_iter_image():
@@ -614,7 +614,7 @@ class ImageLoader:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  PRE-PROCESSING  (uitgebreid)
+#  PRE-PROCESSING  (extended)
 # ═══════════════════════════════════════════════════════════════════════════════
 class Preprocessor:
 
@@ -670,7 +670,7 @@ class Preprocessor:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  HULPFUNCTIES VOOR SEGMENTATIE & WEERGAVE
+#  HELPER FUNCTIONS FOR SEGMENTATION & DISPLAY
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def _filter_by_morphology(label_img, min_area, max_area):
@@ -795,58 +795,58 @@ class ViewerTab(QWidget):
         lv = QVBoxLayout(left)
         lv.setSpacing(8)
 
-        grp_file = QGroupBox("📂  Bestand laden")
+        grp_file = QGroupBox("📂  Load File")
         fv = QVBoxLayout(grp_file)
-        self.btn_open = QPushButton("Open .LIF / .TIF bestand")
+        self.btn_open = QPushButton("Open .LIF / .TIF file")
         self.btn_open.setObjectName("primary")
         self.btn_open.setToolTip(
-            "Open een microscopie-bestand.\n"
-            "Ondersteunde formaten:\n"
-            "  • .LIF  — Leica Image File (meerdere series mogelijk)\n"
-            "  • .TIF / .TIFF — standaard TIFF (ook multi-channel/Z-stack)"
+            "Open a microscopy file.\n"
+            "Supported formats:\n"
+            "  • .LIF  — Leica Image File (multiple series possible)\n"
+            "  • .TIF / .TIFF — standard TIFF (also multi-channel/Z-stack)"
         )
         self.btn_open.clicked.connect(self._open_file)
         fv.addWidget(self.btn_open)
-        self.lbl_file = QLabel("Geen bestand geladen")
+        self.lbl_file = QLabel("No file loaded")
         self.lbl_file.setWordWrap(True)
         self.lbl_file.setStyleSheet("color:#58a6ff; font-size:11px;")
         fv.addWidget(self.lbl_file)
         self.cmb_series = QComboBox()
         self.cmb_series.setToolTip(
-            "Kies de te bekijken serie (experiment) binnen het geladen bestand.\n"
-            "LIF-bestanden kunnen meerdere opnames (series) bevatten;\n"
-            "TIF-bestanden hebben doorgaans maar één serie."
+            "Choose the series (experiment) to view within the loaded file.\n"
+            "LIF files can contain multiple recordings (series);\n"
+            "TIF files typically have only one series."
         )
         self.cmb_series.currentIndexChanged.connect(self._series_changed)
-        fv.addWidget(QLabel("Serie:"))
+        fv.addWidget(QLabel("Series:"))
         fv.addWidget(self.cmb_series)
         lv.addWidget(grp_file)
 
-        grp_view = QGroupBox("🎨  Weergave-instellingen")
+        grp_view = QGroupBox("🎨  Display Settings")
         vv = QFormLayout(grp_view)
         self.cmb_channel = QComboBox()
         self.cmb_channel.setToolTip(
-            "Kies welk fluorescentiekanaal je wilt bekijken.\n"
-            "Elk kanaal komt overeen met een andere kleurstof of marker\n"
-            "(bijv. DAPI voor kernen, GFP voor eiwitten)."
+            "Choose which fluorescence channel to view.\n"
+            "Each channel corresponds to a different dye or marker\n"
+            "(e.g. DAPI for nuclei, GFP for proteins)."
         )
         self.cmb_channel.currentIndexChanged.connect(self._refresh_image)
-        vv.addRow("Kanaal:", self.cmb_channel)
+        vv.addRow("Channel:", self.cmb_channel)
         self.cmb_display = QComboBox()
-        self.cmb_display.addItems(["Max Projectie", "Z-Slice"])
+        self.cmb_display.addItems(["Max Projection", "Z-Slice"])
         self.cmb_display.setToolTip(
-            "Max Projectie: toont de maximale pixelwaarde over alle Z-lagen.\n"
-            "  → Geeft een volledig overzicht van alle structuren in het volume.\n\n"
-            "Z-Slice: toont één specifieke Z-laag tegelijk.\n"
-            "  → Gebruik de schuifbalk om door de lagen te navigeren."
+            "Max Projection: shows the maximum pixel value across all Z-layers.\n"
+            "  → Provides a complete overview of all structures in the volume.\n\n"
+            "Z-Slice: shows one specific Z-layer at a time.\n"
+            "  → Use the slider to navigate through the layers."
         )
         self.cmb_display.currentIndexChanged.connect(self._toggle_view_mode)
-        vv.addRow("Modus:", self.cmb_display)
+        vv.addRow("Mode:", self.cmb_display)
         self.sld_z = QSlider(Qt.Horizontal)
         self.sld_z.setMinimum(0); self.sld_z.setMaximum(0)
         self.sld_z.setToolTip(
-            "Schuif om door de Z-lagen (diepte) van de stack te bladeren.\n"
-            "Alleen actief in de modus 'Z-Slice'."
+            "Slide to browse through the Z-layers (depth) of the stack.\n"
+            "Only active in 'Z-Slice' mode."
         )
         self.sld_z.valueChanged.connect(self._refresh_image)
         self.sld_z.setEnabled(False)
@@ -854,31 +854,31 @@ class ViewerTab(QWidget):
         vv.addRow(self.lbl_z, self.sld_z)
         lv.addWidget(grp_view)
 
-        grp_cmap = QGroupBox("🌈  Kleurkaart")
+        grp_cmap = QGroupBox("🌈  Color Map")
         cv = QFormLayout(grp_cmap)
         self.cmb_cmap = QComboBox()
         self.cmb_cmap.addItems(["hot", "gray", "inferno", "viridis",
                                  "magma", "plasma", "cividis", "turbo"])
         self.cmb_cmap.setToolTip(
-            "Kies de kleurkaart voor de weergave van het beeld:\n"
-            "  • hot      — zwart → rood → geel → wit (goed voor aggregaten)\n"
-            "  • gray     — grijswaarden (standaard microscopie)\n"
-            "  • inferno  — zwart → paars → oranje → wit\n"
-            "  • viridis  — donkerblauw → groen → geel (kleurblindveilig)\n"
-            "  • magma    — zwart → paars → roze → wit\n"
-            "  • plasma   — blauw → paars → geel\n"
-            "  • cividis  — blauw → groen → geel (kleurblindveilig)\n"
-            "  • turbo    — regenboog met betere perceptie"
+            "Choose the color map for displaying the image:\n"
+            "  • hot      — black → red → yellow → white (good for aggregates)\n"
+            "  • gray     — grayscale (standard microscopy)\n"
+            "  • inferno  — black → purple → orange → white\n"
+            "  • viridis  — dark blue → green → yellow (colorblind-safe)\n"
+            "  • magma    — black → purple → pink → white\n"
+            "  • plasma   — blue → purple → yellow\n"
+            "  • cividis  — blue → green → yellow (colorblind-safe)\n"
+            "  • turbo    — rainbow with better perception"
         )
         self.cmb_cmap.currentIndexChanged.connect(self._refresh_image)
-        cv.addRow("Kleurkaart:", self.cmb_cmap)
-        self.chk_autoscale = QCheckBox("Auto-schaal intensiteit")
+        cv.addRow("Color map:", self.cmb_cmap)
+        self.chk_autoscale = QCheckBox("Auto-scale intensity")
         self.chk_autoscale.setChecked(True)
         self.chk_autoscale.setToolTip(
-            "Als aangevinkt: past de helderheid automatisch aan op de\n"
-            "minimum- en maximumwaarde van het zichtbare beeld.\n\n"
-            "Als uitgevinkt: gebruikt een vaste schaal van 0 tot de\n"
-            "maximale pixelwaarde in het beeld."
+            "If checked: automatically adjusts brightness to the\n"
+            "minimum and maximum value of the visible image.\n\n"
+            "If unchecked: uses a fixed scale from 0 to the\n"
+            "maximum pixel value in the image."
         )
         self.chk_autoscale.stateChanged.connect(self._refresh_image)
         cv.addWidget(self.chk_autoscale)
@@ -905,8 +905,8 @@ class ViewerTab(QWidget):
         main_layout.addWidget(right_w)
 
     def _open_file(self):
-        filt = "Microscopie-bestanden (*.lif *.tif *.tiff);;Alle bestanden (*)"
-        path, _ = QFileDialog.getOpenFileName(self, "Open bestand", "", filt)
+        filt = "Microscopy files (*.lif *.tif *.tiff);;All files (*)"
+        path, _ = QFileDialog.getOpenFileName(self, "Open file", "", filt)
         if not path:
             return
         try:
@@ -920,7 +920,7 @@ class ViewerTab(QWidget):
             self._load_stack(stacks[0])
             self.lbl_file.setText(Path(path).name)
         except Exception as e:
-            QMessageBox.critical(self, "Laadmelding", str(e))
+            QMessageBox.critical(self, "Load error", str(e))
 
     def _series_changed(self, idx):
         if 0 <= idx < len(self.all_stacks):
@@ -994,7 +994,7 @@ class ViewerTab(QWidget):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  TAB 2 — PRE-PROCESSING (uitgebreid)
+#  TAB 2 — PRE-PROCESSING (extended)
 # ═══════════════════════════════════════════════════════════════════════════════
 class PreprocessTab(QWidget):
     preprocessed = pyqtSignal(np.ndarray)
@@ -1013,29 +1013,29 @@ class PreprocessTab(QWidget):
         left.setFixedWidth(290)
         lv = QVBoxLayout(left)
 
-        grp_quick = QGroupBox("⚡  Snelknoppen")
+        grp_quick = QGroupBox("⚡  Quick Buttons")
         qv = QVBoxLayout(grp_quick)
-        btn_recommended = QPushButton("★  Aanbevolen pipeline (aggregaten)")
+        btn_recommended = QPushButton("★  Recommended pipeline (aggregates)")
         btn_recommended.setObjectName("primary")
         btn_recommended.setToolTip(
-            "Laadt de aanbevolen instellingen:\n"
-            "• Achtergrondsubtractie AAN — Gaussiaan (σ=50)\n"
-            "• Ruisonderdrukking AAN — Gaussiaan (σ=1.0)\n"
-            "• Alle overige stappen UIT\n\n"
-            "Optimaal startpunt voor eiwit-aggregaat analyse in confocale microscopie."
+            "Loads the recommended settings:\n"
+            "• Background subtraction ON — Gaussian (σ=50)\n"
+            "• Noise reduction ON — Gaussian (σ=1.0)\n"
+            "• All other steps OFF\n\n"
+            "Optimal starting point for protein aggregate analysis in confocal microscopy."
         )
         btn_recommended.clicked.connect(self._set_recommended)
         qv.addWidget(btn_recommended)
-        btn_reset_all = QPushButton("↺  Alles terugzetten")
+        btn_reset_all = QPushButton("↺  Reset All")
         btn_reset_all.setToolTip(
-            "Zet alle pre-processing stappen terug naar de fabrieksinstellingen\n"
-            "en toont het originele, onbewerkte beeld."
+            "Resets all pre-processing steps to factory defaults\n"
+            "and shows the original, unprocessed image."
         )
         btn_reset_all.clicked.connect(self._reset)
         qv.addWidget(btn_reset_all)
         lv.addWidget(grp_quick)
 
-        grp_steps = QGroupBox("🔧  Pre-processing stappen")
+        grp_steps = QGroupBox("🔧  Pre-processing Steps")
         sv = QVBoxLayout(grp_steps)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -1043,13 +1043,13 @@ class PreprocessTab(QWidget):
         iv = QVBoxLayout(inner)
 
         # Normalisatie
-        self.chk_norm = QCheckBox("Percentiel-normalisatie")
+        self.chk_norm = QCheckBox("Percentile Normalization")
         self.chk_norm.setChecked(True)
         self.chk_norm.setToolTip(
-            "Schaalt de pixelintensiteiten zodat pmin% de donkerste\n"
-            "en pmax% de helderste waarde wordt.\n\n"
-            "Vermindert de invloed van extreme (uitbijter) pixels\n"
-            "en maakt beelden van verschillende opnames vergelijkbaar."
+            "Scales pixel intensities so that pmin% becomes the darkest\n"
+            "and pmax% becomes the brightest value.\n\n"
+            "Reduces the influence of extreme (outlier) pixels\n"
+            "and makes images from different recordings comparable."
         )
         iv.addWidget(self.chk_norm)
         pn = QHBoxLayout()
@@ -1057,44 +1057,44 @@ class PreprocessTab(QWidget):
         self.spn_pmin = QDoubleSpinBox()
         self.spn_pmin.setRange(0, 49); self.spn_pmin.setValue(1.0); self.spn_pmin.setSingleStep(0.5)
         self.spn_pmin.setToolTip(
-            "Onderste percentielpunt (%) voor normalisatie.\n"
-            "Pixels onder deze drempel worden op 0 gezet.\n"
-            "Standaard: 1.0% — filtert ruis in de donkere achtergrond."
+            "Lower percentile point (%) for normalization.\n"
+            "Pixels below this threshold are set to 0.\n"
+            "Default: 1.0% — filters noise in the dark background."
         )
         pn.addWidget(self.spn_pmin)
         pn.addWidget(QLabel("pmax:"))
         self.spn_pmax = QDoubleSpinBox()
         self.spn_pmax.setRange(51, 100); self.spn_pmax.setValue(99.9); self.spn_pmax.setSingleStep(0.5)
         self.spn_pmax.setToolTip(
-            "Bovenste percentielpunt (%) voor normalisatie.\n"
-            "Pixels boven deze drempel worden op 1 gezet.\n"
-            "Standaard: 99.9% — voorkomt dat één heldere pixel\n"
-            "de schaal verpest."
+            "Upper percentile point (%) for normalization.\n"
+            "Pixels above this threshold are set to 1.\n"
+            "Default: 99.9% — prevents a single bright pixel\n"
+            "from ruining the scale."
         )
         pn.addWidget(self.spn_pmax)
         iv.addLayout(pn)
         self._add_sep(iv)
 
         # Achtergrondsubtractie
-        self.chk_bg = QCheckBox("Achtergrondsubtractie")
+        self.chk_bg = QCheckBox("Background Subtraction")
         self.chk_bg.setToolTip(
-            "Verwijdert de diffuse achtergrondgloed uit het beeld.\n"
-            "Belangrijk wanneer het beeld een ongelijkmatige verlichtingsachtergrond heeft.\n\n"
-            "Aanbevolen bij aggregaat-analyse om vals-positieve detecties te vermijden."
+            "Removes the diffuse background glow from the image.\n"
+            "Important when the image has an uneven illumination background.\n\n"
+            "Recommended for aggregate analysis to avoid false-positive detections."
         )
         iv.addWidget(self.chk_bg)
         bg_type_row = QHBoxLayout()
-        bg_type_row.addWidget(QLabel("Methode:"))
+        bg_type_row.addWidget(QLabel("Method:"))
         self.cmb_bg_method = QComboBox()
-        self.cmb_bg_method.addItems(["Rolling Ball (morfologisch)", "Gaussiaan"])
+        self.cmb_bg_method.addItems(["Rolling Ball (morphological)", "Gaussian"])
         self.cmb_bg_method.setToolTip(
-            "Rolling Ball (morfologisch):\n"
-            "  Schat achtergrond via morfologische opening (wit tophat).\n"
-            "  Goed voor lokale, ongelijkmatige achtergronden.\n\n"
-            "Gaussiaan:\n"
-            "  Past een grote Gaussiaanse blur toe als schatting van de achtergrond.\n"
-            "  Snel en effectief bij geleidelijk variërende achtergronden.\n"
-            "  Aanbevolen voor aggregaat-analyse (σ ≈ 50 px)."
+            "Rolling Ball (morphological):\n"
+            "  Estimates background via morphological opening (white tophat).\n"
+            "  Good for local, uneven backgrounds.\n\n"
+            "Gaussian:\n"
+            "  Applies a large Gaussian blur as background estimate.\n"
+            "  Fast and effective for gradually varying backgrounds.\n"
+            "  Recommended for aggregate analysis (σ ≈ 50 px)."
         )
         bg_type_row.addWidget(self.cmb_bg_method)
         iv.addLayout(bg_type_row)
@@ -1103,11 +1103,11 @@ class PreprocessTab(QWidget):
         self.spn_bg_radius = QSpinBox()
         self.spn_bg_radius.setRange(5, 500); self.spn_bg_radius.setValue(30)
         self.spn_bg_radius.setToolTip(
-            "Straal (in pixels) voor de achtergrondschatting.\n\n"
-            "Rolling Ball: groter = grovere achtergrondschatting.\n"
-            "Gaussiaan (σ): groter = meer blur, meer grote structuren worden als achtergrond gezien.\n\n"
-            "Richtlijn: minstens 2–3× de maximale aggregaatgrootte.\n"
-            "Aanbevolen bij Gaussiaan: σ = 50 px."
+            "Radius (in pixels) for background estimation.\n\n"
+            "Rolling Ball: larger = coarser background estimate.\n"
+            "Gaussian (σ): larger = more blur, more large structures seen as background.\n\n"
+            "Guideline: at least 2–3× the maximum aggregate size.\n"
+            "Recommended for Gaussian: σ = 50 px."
         )
         bg_row.addWidget(self.spn_bg_radius)
         iv.addLayout(bg_row)
@@ -1117,24 +1117,24 @@ class PreprocessTab(QWidget):
         self.chk_tophat = QCheckBox("Top-Hat Filter")
         self.chk_tophat.setChecked(True)
         self.chk_tophat.setToolTip(
-            "Versterkt kleine, heldere structuren (aggregaten) ten opzichte\n"
-            "van de omgevende achtergrond.\n\n"
-            "Werkt door de morfologische opening van het beeld af te trekken,\n"
-            "waardoor alleen structuren kleiner dan de opgegeven radius overblijven."
+            "Enhances small, bright structures (aggregates) relative\n"
+            "to the surrounding background.\n\n"
+            "Works by subtracting the morphological opening from the image,\n"
+            "leaving only structures smaller than the specified radius."
         )
         iv.addWidget(self.chk_tophat)
         th_mode_row = QHBoxLayout()
-        th_mode_row.addWidget(QLabel("Modus:"))
+        th_mode_row.addWidget(QLabel("Mode:"))
         self.cmb_tophat_mode = QComboBox()
-        self.cmb_tophat_mode.addItems(["Enkelvoudig", "Multi-schaal (aanbevolen)"])
+        self.cmb_tophat_mode.addItems(["Single", "Multi-scale (recommended)"])
         self.cmb_tophat_mode.setCurrentIndex(1)
         self.cmb_tophat_mode.setToolTip(
-            "Enkelvoudig:\n"
-            "  Gebruikt één vaste straal voor de top-hat filter.\n\n"
-            "Multi-schaal (aanbevolen):\n"
-            "  Combineert drie stralen tegelijk: r-2, r en r+3.\n"
-            "  Detecteert aggregaten van verschillende groottes in één stap.\n"
-            "  Robuuster bij heterogene preparaten."
+            "Single:\n"
+            "  Uses one fixed radius for the top-hat filter.\n\n"
+            "Multi-scale (recommended):\n"
+            "  Combines three radii simultaneously: r-2, r and r+3.\n"
+            "  Detects aggregates of different sizes in one step.\n"
+            "  More robust for heterogeneous preparations."
         )
         th_mode_row.addWidget(self.cmb_tophat_mode)
         iv.addLayout(th_mode_row)
@@ -1143,39 +1143,39 @@ class PreprocessTab(QWidget):
         self.spn_tophat = QSpinBox()
         self.spn_tophat.setRange(1, 50); self.spn_tophat.setValue(6)
         self.spn_tophat.setToolTip(
-            "Straal van het structurerend element (schijf) in pixels.\n\n"
-            "Kies een waarde iets groter dan de typische aggregaatstraal.\n"
-            "Te klein: achtergrond wordt niet goed onderdrukt.\n"
-            "Te groot: kleine aggregaten worden weggefilterd.\n"
-            "Typische waarde: 4–10 px afhankelijk van de microscopie-resolutie."
+            "Radius of the structuring element (disk) in pixels.\n\n"
+            "Choose a value slightly larger than the typical aggregate radius.\n"
+            "Too small: background is not well suppressed.\n"
+            "Too large: small aggregates are filtered out.\n"
+            "Typical value: 4–10 px depending on microscopy resolution."
         )
         th_row.addWidget(self.spn_tophat)
         iv.addLayout(th_row)
-        info_th = QLabel("Multi-schaal: gebruikt r, r+3, r-2 tegelijk")
+        info_th = QLabel("Multi-scale: uses r, r+3, r-2 simultaneously")
         info_th.setStyleSheet("color:#8b949e; font-size:11px;")
         iv.addWidget(info_th)
         self._add_sep(iv)
 
         # Denoise
-        self.chk_denoise = QCheckBox("Ruisonderdrukking")
+        self.chk_denoise = QCheckBox("Noise Reduction")
         self.chk_denoise.setToolTip(
-            "Vermindert ruis in het beeld vóór segmentatie.\n"
-            "Vermindert vals-positieve detecties door ruis-pieken.\n\n"
-            "Let op: te veel onderdrukking kan kleine aggregaten vervagen."
+            "Reduces noise in the image before segmentation.\n"
+            "Reduces false-positive detections from noise peaks.\n\n"
+            "Note: too much suppression can blur small aggregates."
         )
         iv.addWidget(self.chk_denoise)
         dn_mode_row = QHBoxLayout()
-        dn_mode_row.addWidget(QLabel("Methode:"))
+        dn_mode_row.addWidget(QLabel("Method:"))
         self.cmb_denoise_mode = QComboBox()
-        self.cmb_denoise_mode.addItems(["Gaussiaan", "Bilateral (behoudt randen) ★"])
+        self.cmb_denoise_mode.addItems(["Gaussian", "Bilateral (preserves edges) ★"])
         self.cmb_denoise_mode.setCurrentIndex(1)
         self.cmb_denoise_mode.setToolTip(
-            "Gaussiaan:\n"
-            "  Snelle, isotrope vervaging. Eenvoudig maar vervaagt ook randen.\n"
-            "  Goed voor hoog-ruisige beelden waar randbehoud minder belangrijk is.\n\n"
-            "Bilateral (★ aanbevolen):\n"
-            "  Onderdrukt ruis terwijl scherpe randen (aggregaatgrenzen) behouden blijven.\n"
-            "  Langzamer maar kwalitatief beter voor aggregaat-detectie."
+            "Gaussian:\n"
+            "  Fast, isotropic blur. Simple but also blurs edges.\n"
+            "  Good for high-noise images where edge preservation is less important.\n\n"
+            "Bilateral (★ recommended):\n"
+            "  Suppresses noise while preserving sharp edges (aggregate boundaries).\n"
+            "  Slower but qualitatively better for aggregate detection."
         )
         dn_mode_row.addWidget(self.cmb_denoise_mode)
         iv.addLayout(dn_mode_row)
@@ -1184,11 +1184,11 @@ class PreprocessTab(QWidget):
         self.spn_sigma = QDoubleSpinBox()
         self.spn_sigma.setRange(0.1, 10.0); self.spn_sigma.setValue(0.8); self.spn_sigma.setSingleStep(0.1)
         self.spn_sigma.setToolTip(
-            "Sterkte van de ruisonderdrukking (standaardafwijking van de Gaussiaan).\n\n"
-            "Gaussiaan: hogere sigma = meer vervaging.\n"
-            "Bilateral: hogere sigma = groter ruimtelijk bereik van de filter.\n\n"
-            "Typische waarden: 0.5–2.0.\n"
-            "Begin laag (0.8) en verhoog alleen als er veel ruis zichtbaar is."
+            "Strength of noise reduction (standard deviation of the Gaussian).\n\n"
+            "Gaussian: higher sigma = more blurring.\n"
+            "Bilateral: higher sigma = larger spatial range of the filter.\n\n"
+            "Typical values: 0.5–2.0.\n"
+            "Start low (0.8) and increase only if a lot of noise is visible."
         )
         dn_row.addWidget(self.spn_sigma)
         iv.addLayout(dn_row)
@@ -1199,12 +1199,12 @@ class PreprocessTab(QWidget):
         sv.addWidget(scroll)
         lv.addWidget(grp_steps)
 
-        btn_apply = QPushButton("▶  Pre-processing toepassen")
+        btn_apply = QPushButton("▶  Apply Pre-processing")
         btn_apply.setObjectName("primary")
         btn_apply.setToolTip(
-            "Past alle aangevinkte pre-processing stappen toe op het huidige beeld\n"
-            "in de volgorde: achtergrondsubtractie → top-hat → ruisonderdrukking → normalisatie.\n\n"
-            "Het resultaat wordt rechts getoond en doorgegeven aan de segmentatie-tabs."
+            "Applies all checked pre-processing steps to the current image\n"
+            "in order: background subtraction → top-hat → noise reduction → normalization.\n\n"
+            "The result is shown on the right and passed to the segmentation tabs."
         )
         btn_apply.clicked.connect(self._apply)
         lv.addWidget(btn_apply)
@@ -1245,7 +1245,7 @@ class PreprocessTab(QWidget):
     def _apply(self):
         raw = self._get_raw()
         if raw is None:
-            QMessageBox.warning(self, "Geen beeld", "Laad eerst een beeld.")
+            QMessageBox.warning(self, "No image", "Load an image first.")
             return
         img = raw.copy().astype(np.float32)
 
@@ -1287,7 +1287,7 @@ class PreprocessTab(QWidget):
     def _show_comparison(self, before, after):
         self.canvas_pre.fig.clf()
         axes = self.canvas_pre.fig.subplots(1, 2)
-        for ax, img, title in zip(axes, [before, after], ["Origineel", "Na pre-processing"]):
+        for ax, img, title in zip(axes, [before, after], ["Original", "After pre-processing"]):
             ax.imshow(img, cmap="hot", aspect="equal", interpolation="nearest")
             ax.set_title(title, color="#79c0ff")
             ax.axis("off")
@@ -1302,7 +1302,7 @@ class PreprocessTab(QWidget):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  STATISTIEKEN-DIALOOG
+#  STATISTICS DIALOG
 # ═══════════════════════════════════════════════════════════════════════════════
 class StatsDialog(QDialog):
     def __init__(self, result: SegmentationResult, parent=None):
@@ -1332,12 +1332,12 @@ class StatsDialog(QDialog):
             areas = [p.get("area_px2", 0) for p in result.properties]
             ax = fig.add_subplot(121)
             ax.hist(areas, bins=30, color="#e94560", edgecolor="#161b22")
-            ax.set_title("Oppervlak (px²)", color="#79c0ff")
+            ax.set_title("Area (px²)", color="#79c0ff")
             ax.set_facecolor("#0d1117"); ax.tick_params(colors="#79c0ff")
             intns = [p.get("mean_intensity", 0) for p in result.properties]
             ax2 = fig.add_subplot(122)
             ax2.hist(intns, bins=30, color="#79c0ff", edgecolor="#161b22")
-            ax2.set_title("Intensiteitsverdeling", color="#79c0ff")
+            ax2.set_title("Intensity distribution", color="#79c0ff")
             ax2.set_facecolor("#0d1117"); ax2.tick_params(colors="#79c0ff")
             fig.tight_layout()
         lyt.addWidget(canvas)
@@ -1348,7 +1348,7 @@ class StatsDialog(QDialog):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  TAB 3 — CELLPOSE CELLICHAAM SEGMENTATIE
+#  TAB 3 — CELLPOSE CELL BODY SEGMENTATION
 # ═══════════════════════════════════════════════════════════════════════════════
 class CellposeWorker(QThread):
     finished = pyqtSignal(object)
@@ -1378,7 +1378,7 @@ class CellposeWorker(QThread):
             use_gpu = True
             t0 = time.perf_counter()
 
-            self.progress.emit("⏳  Cellpose model laden…")
+            self.progress.emit("⏳  Loading Cellpose model…")
             model = cp_models.CellposeModel(gpu=use_gpu, model_type=self.model_type)
             
             img2d = self.img
@@ -1386,7 +1386,7 @@ class CellposeWorker(QThread):
                 img2d = img2d.max(axis=0)
 
             self.progress.emit(
-                f"⏳  Segmentatie op kanaal {self.kanaal} "
+                f"⏳  Segmentation on channel {self.kanaal} "
                 f"(shape {img2d.shape}, diameter={self.diameter})…"
             )
 
@@ -1399,7 +1399,7 @@ class CellposeWorker(QThread):
             )
             mask = masks[0]
 
-            self.progress.emit("⏳  Celkerngaten opvullen…")
+            self.progress.emit("⏳  Filling cell nucleus holes…")
             mask_filled = np.zeros_like(mask)
             for cel_id in range(1, int(mask.max()) + 1):
                 cel = mask == cel_id
@@ -1454,31 +1454,31 @@ class CellposeTab(QWidget):
 
         if not HAS_CELLPOSE:
             warn = QLabel(
-                "⚠  Cellpose is niet geïnstalleerd.\n"
-                "Installeer met:\n  pip install cellpose"
+                "⚠  Cellpose is not installed.\n"
+                "Install with:\n  pip install cellpose"
             )
             warn.setStyleSheet("color:#ff8800; font-weight:bold; padding:10px;")
             warn.setWordWrap(True)
             lv.addWidget(warn)
 
-        grp_model = QGroupBox("🔬  Model & Kanaal")
+        grp_model = QGroupBox("🔬  Model & Channel")
         mf = QFormLayout(grp_model)
 
         self.spn_kanaal = QSpinBox()
         self.spn_kanaal.setRange(0, 15)
         self.spn_kanaal.setValue(2)
-        mf.addRow("Segmentatie-kanaal:", self.spn_kanaal)
+        mf.addRow("Segmentation channel:", self.spn_kanaal)
 
         self.cmb_model = QComboBox()
         self.cmb_model.addItems(["cyto2", "cyto", "nuclei", "cyto3"])
         self.cmb_model.setCurrentText("cyto2")
         self.cmb_model.setToolTip(
-            "Kies het Cellpose-model passend bij je preparaat:\n\n"
-            "  • cyto2   — verbeterd cytoplasma-model (aanbevolen voor cellen)\n"
-            "  • cyto    — origineel cytoplasma-model\n"
-            "  • nuclei  — geoptimaliseerd voor celkernen (DAPI/Hoechst)\n"
-            "  • cyto3   — nieuwste generatie cytoplasma-model\n\n"
-            "Probeer cyto2 als startpunt voor de meeste cellijnen."
+            "Choose the Cellpose model suited to your preparation:\n\n"
+            "  • cyto2   — improved cytoplasm model (recommended for cells)\n"
+            "  • cyto    — original cytoplasm model\n"
+            "  • nuclei  — optimised for cell nuclei (DAPI/Hoechst)\n"
+            "  • cyto3   — latest generation cytoplasm model\n\n"
+            "Try cyto2 as a starting point for most cell lines."
         )
         mf.addRow("Model:", self.cmb_model)
 
@@ -1487,18 +1487,18 @@ class CellposeTab(QWidget):
         self.spn_diameter.setValue(80)
         self.spn_diameter.setSpecialValueText("Auto")
         self.spn_diameter.setToolTip(
-            "Verwachte celdiameter in pixels.\n\n"
-            "Stel in op 0 voor automatische schatting door Cellpose.\n"
-            "Bij handmatige opgave: meet een representatieve cel in de viewer\n"
-            "en vul de diameter in pixels in.\n\n"
-            "Te klein: cellen worden gesplitst.\n"
-            "Te groot: meerdere cellen worden samengevoegd."
+            "Expected cell diameter in pixels.\n\n"
+            "Set to 0 for automatic estimation by Cellpose.\n"
+            "For manual input: measure a representative cell in the viewer\n"
+            "and enter the diameter in pixels.\n\n"
+            "Too small: cells are split.\n"
+            "Too large: multiple cells are merged."
         )
-        mf.addRow("Celdiameter (px, 0=auto):", self.spn_diameter)
+        mf.addRow("Cell diameter (px, 0=auto):", self.spn_diameter)
 
         lv.addWidget(grp_model)
 
-        grp_thr = QGroupBox("⚙  Segmentatie-parameters")
+        grp_thr = QGroupBox("⚙  Segmentation Parameters")
         tf = QFormLayout(grp_thr)
 
         self.spn_flow = QDoubleSpinBox()
@@ -1506,11 +1506,11 @@ class CellposeTab(QWidget):
         self.spn_flow.setSingleStep(0.05)
         self.spn_flow.setValue(0.8)
         self.spn_flow.setToolTip(
-            "Flow threshold: maximaal toegestane fout in de optische stroomvelden.\n\n"
-            "Lager (bijv. 0.4): accepteert meer imperfecte segmentaties → meer cellen\n"
-            "Hoger (bijv. 0.9): strenger, alleen goed-gevormde maskers → minder cellen\n\n"
-            "Standaard: 0.8 — goed startpunt voor de meeste preparaten.\n"
-            "Verlaag als te weinig cellen worden gevonden."
+            "Flow threshold: maximum allowed error in optical flow fields.\n\n"
+            "Lower (e.g. 0.4): accepts more imperfect segmentations → more cells\n"
+            "Higher (e.g. 0.9): stricter, only well-formed masks → fewer cells\n\n"
+            "Default: 0.8 — good starting point for most preparations.\n"
+            "Lower if too few cells are found."
         )
         tf.addRow("Flow threshold:", self.spn_flow)
 
@@ -1519,43 +1519,43 @@ class CellposeTab(QWidget):
         self.spn_cellprob.setSingleStep(0.5)
         self.spn_cellprob.setValue(-4.0)
         self.spn_cellprob.setToolTip(
-            "Cel-kansdrempel: minimale voorspelde kans om als cel te worden meegenomen.\n\n"
-            "Lager (bijv. -6.0): meer pixels worden als cel gezien → grotere maskers\n"
-            "Hoger (bijv. 0.0): alleen de meest zekere gebieden → kleinere/minder maskers\n\n"
-            "Standaard: -4.0 — liberale instelling die ook zwak-gelabelde cellen meeneemt.\n"
-            "Verhoog als te veel achtergrond als cel wordt gedetecteerd."
+            "Cell probability threshold: minimum predicted probability to be included as a cell.\n\n"
+            "Lower (e.g. -6.0): more pixels seen as cell → larger masks\n"
+            "Higher (e.g. 0.0): only the most certain areas → smaller/fewer masks\n\n"
+            "Default: -4.0 — liberal setting that also includes weakly labelled cells.\n"
+            "Increase if too much background is detected as cell."
         )
         tf.addRow("Cellprob threshold:", self.spn_cellprob)
 
-        btn_reset = QPushButton("↺  Herstel standaardwaarden")
+        btn_reset = QPushButton("↺  Restore Defaults")
         btn_reset.clicked.connect(self._reset_params)
         tf.addRow(btn_reset)
 
         lv.addWidget(grp_thr)
 
-        grp_info = QGroupBox("ℹ  Werkwijze")
+        grp_info = QGroupBox("ℹ  How It Works")
         iv = QVBoxLayout(grp_info)
         lbl_info = QLabel(
-            "Cellpose berekent een <b>max-intensiteitsprojectie</b> over alle "
-            "Z-slices op het gekozen kanaal en segmenteert daarop de cellichamen.\n\n"
-            "Het resulterende binaire masker kan in verdere stappen worden gebruikt "
-            "om achtergrond te filteren."
+            "Cellpose computes a <b>max-intensity projection</b> across all "
+            "Z-slices on the chosen channel and segments the cell bodies on it.\n\n"
+            "The resulting binary mask can be used in further steps "
+            "to filter out the background."
         )
         lbl_info.setWordWrap(True)
         lbl_info.setStyleSheet("color:#8b949e; font-size:11px; padding:4px;")
         iv.addWidget(lbl_info)
         lv.addWidget(grp_info)
 
-        self.btn_run = QPushButton("▶  Cellichamen segmenteren")
+        self.btn_run = QPushButton("▶  Segment Cell Bodies")
         self.btn_run.setObjectName("primary")
         self.btn_run.setEnabled(HAS_CELLPOSE)
         self.btn_run.setToolTip(
-            "Start de Cellpose cellichaam-segmentatie op het huidige beeld.\n\n"
-            "Cellpose berekent een max-projectie over alle Z-lagen en segmenteert\n"
-            "de cellichamen automatisch op basis van het gekozen model.\n\n"
-            "Het resulterende binaire masker wordt gebruikt om aggregaat-detecties\n"
-            "te beperken tot het cellichaam (achtergrond wordt gemaskeerd).\n\n"
-            "Vereist: pip install cellpose"
+            "Starts Cellpose cell body segmentation on the current image.\n\n"
+            "Cellpose computes a max projection over all Z-layers and segments\n"
+            "cell bodies automatically based on the chosen model.\n\n"
+            "The resulting binary mask is used to restrict aggregate detections\n"
+            "to the cell body (background is masked).\n\n"
+            "Required: pip install cellpose"
         )
         self.btn_run.clicked.connect(self._run)
         lv.addWidget(self.btn_run)
@@ -1570,7 +1570,7 @@ class CellposeTab(QWidget):
         self.lbl_status.setWordWrap(True)
         lv.addWidget(self.lbl_status)
 
-        grp_stats = QGroupBox("📊  Resultaat")
+        grp_stats = QGroupBox("📊  Result")
         sv = QVBoxLayout(grp_stats)
         self.txt_stats = QTextEdit()
         self.txt_stats.setReadOnly(True)
@@ -1579,11 +1579,11 @@ class CellposeTab(QWidget):
         sv.addWidget(self.txt_stats)
         lv.addWidget(grp_stats)
 
-        btn_export = QPushButton("💾  Exporteer celmasker als TIFF")
+        btn_export = QPushButton("💾  Export Cell Mask as TIFF")
         btn_export.setToolTip(
-            "Slaat het gesegmenteerde celmasker op als TIFF-bestand.\n\n"
-            "Het masker is binair: wit (255) = cellichaam, zwart (0) = achtergrond.\n"
-            "Kan later opnieuw worden ingeladen of gebruikt voor batch-verwerking."
+            "Saves the segmented cell mask as a TIFF file.\n\n"
+            "The mask is binary: white (255) = cell body, black (0) = background.\n"
+            "Can be reloaded later or used for batch processing."
         )
         btn_export.clicked.connect(self._export_mask)
         lv.addWidget(btn_export)
@@ -1611,14 +1611,14 @@ class CellposeTab(QWidget):
     def _run(self):
         img = self._get_image()
         if img is None:
-            QMessageBox.warning(self, "Geen beeld", "Laad eerst een beeld.")
+            QMessageBox.warning(self, "No image", "Load an image first.")
             return
 
         diameter = self.spn_diameter.value() or None
 
         self.btn_run.setEnabled(False)
         self.progress.setVisible(True)
-        self.lbl_status.setText("Bezig…")
+        self.lbl_status.setText("Running…")
         self.txt_stats.clear()
 
         self._worker = CellposeWorker(
@@ -1645,7 +1645,7 @@ class CellposeTab(QWidget):
         t  = result["elapsed"]
         diam = result["diameter"] if result["diameter"] else "auto"
 
-        self.lbl_status.setText(f"✅  Klaar — {n} cellen gedetecteerd in {t:.1f}s")
+        self.lbl_status.setText(f"✅  Done — {n} cells detected in {t:.1f}s")
         self.txt_stats.setPlainText(
             f"Model          : {result['model']}\n"
             f"Diameter       : {diam} px\n"
@@ -1653,7 +1653,7 @@ class CellposeTab(QWidget):
             f"Cellprob thr.  : {self.spn_cellprob.value():.1f}\n"
             f"Gedetect. cellen: {n}\n"
             f"Rekentijd      : {t:.2f} s\n"
-            f"Masker dekt    : {self.cell_mask.mean()*100:.1f}% van het beeld"
+            f"Mask covers    : {self.cell_mask.mean()*100:.1f}% of the image"
         )
 
         self._display_result(result)
@@ -1662,8 +1662,8 @@ class CellposeTab(QWidget):
     def _on_error(self, err: str):
         self.btn_run.setEnabled(True)
         self.progress.setVisible(False)
-        self.lbl_status.setText("❌  Fout tijdens segmentatie")
-        QMessageBox.critical(self, "Cellpose fout", err)
+        self.lbl_status.setText("❌  Error during segmentation")
+        QMessageBox.critical(self, "Cellpose error", err)
 
     def _display_result(self, result: dict):
         img     = self._get_image()
@@ -1684,13 +1684,13 @@ class CellposeTab(QWidget):
         BG     = "#0d1117"
 
         axes[0].imshow(img_norm, cmap="gray", interpolation="nearest", vmin=0, vmax=1)
-        axes[0].set_title("Max-projectie (invoer)", **TITLE)
+        axes[0].set_title("Max projection (input)", **TITLE)
 
         axes[1].imshow(mask, cmap="nipy_spectral", interpolation="nearest")
         axes[1].set_title(f"Cel maskers — {result['n_cells']} cellen", **TITLE)
 
         axes[2].imshow(img_masked, cmap="gray", interpolation="nearest", vmin=0, vmax=1)
-        axes[2].set_title("Alleen cellichamen", **TITLE)
+        axes[2].set_title("Cell bodies only", **TITLE)
 
         for ax in axes:
             ax.axis("off")
@@ -1702,16 +1702,16 @@ class CellposeTab(QWidget):
 
     def _export_mask(self):
         if self.cell_mask is None:
-            QMessageBox.warning(self, "Geen masker", "Voer eerst cellichaamdeterminatie uit.")
+            QMessageBox.warning(self, "No mask", "Run cell body detection first.")
             return
         path, _ = QFileDialog.getSaveFileName(
-            self, "Sla celmasker op", "cellpose_masker.tif",
-            "TIFF (*.tif);;Alle bestanden (*)"
+            self, "Save cell mask", "cellpose_mask.tif",
+            "TIFF (*.tif);;All files (*)"
         )
         if not path:
             return
         tifffile.imwrite(path, self.cell_mask.astype(np.uint8) * 255)
-        QMessageBox.information(self, "Opgeslagen", f"Celmasker opgeslagen:\n{path}")
+        QMessageBox.information(self, "Saved", f"Celmasker opgeslagen:\n{path}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1821,7 +1821,7 @@ class EnsembleEngine:
         model_files = sorted(Path(model_dir).glob("model_fold*.pth"))
         if not model_files:
             raise FileNotFoundError(
-                f"Geen model_fold*.pth bestanden gevonden in:\n{model_dir}"
+                f"No model_fold*.pth files found in:\n{model_dir}"
             )
 
         processed = EnsemblePreprocessor.build(img)
@@ -1846,8 +1846,8 @@ class EnsembleEngine:
                 model.load_state_dict(ckpt["state_dict"])
             else:
                 raise ImportError(
-                    "segmentation_models_pytorch is niet geïnstalleerd.\n"
-                    "Installeer met:  pip install segmentation-models-pytorch"
+                    "segmentation_models_pytorch is not installed.\n"
+                    "Install with:  pip install segmentation-models-pytorch"
                 )
 
             tile_sz  = ckpt.get("tile", 256)
@@ -1914,7 +1914,7 @@ class EnsembleDLWorker(QThread):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  TAB 4 — DEEP LEARNING SEGMENTATIE (Ensemble Only)
+#  TAB 4 — DEEP LEARNING SEGMENTATION (Ensemble Only)
 # ═══════════════════════════════════════════════════════════════════════════════
 class DeepLearningTab(QWidget):
     result_ready = pyqtSignal(object)
@@ -1947,7 +1947,7 @@ class DeepLearningTab(QWidget):
         if not HAS_TORCH:
             warn = QLabel(
                 "⚠  PyTorch is niet geïnstalleerd.\n"
-                "Installeer met:\n  pip install torch torchvision"
+                "Install with:\n  pip install torch torchvision"
             )
             warn.setStyleSheet("color:#ff8800; font-weight:bold; padding:8px;")
             warn.setWordWrap(True)
@@ -1962,15 +1962,15 @@ class DeepLearningTab(QWidget):
             warn_smp.setWordWrap(True)
             lv.addWidget(warn_smp)
 
-        grp_ens = QGroupBox("🗂  Ensemble Modellen (map met model_fold*.pth)")
+        grp_ens = QGroupBox("🗂  Ensemble Models (folder with model_fold*.pth)")
         ev = QVBoxLayout(grp_ens)
 
         ens_path_row = QHBoxLayout()
-        self.lbl_ensemble_path = QLabel("Geen map geselecteerd")
+        self.lbl_ensemble_path = QLabel("No folder selected")
         self.lbl_ensemble_path.setStyleSheet("color:#8b949e; font-size:11px;")
         self.lbl_ensemble_path.setWordWrap(True)
         ens_path_row.addWidget(self.lbl_ensemble_path, stretch=1)
-        btn_load_dir = QPushButton("📂  Laad modellenmap")
+        btn_load_dir = QPushButton("📂  Load Model Folder")
         btn_load_dir.clicked.connect(self._load_model_dir)
         ens_path_row.addWidget(btn_load_dir)
         ev.addLayout(ens_path_row)
@@ -1981,31 +1981,31 @@ class DeepLearningTab(QWidget):
         ev.addWidget(self.lbl_ensemble_info)
 
         ens_thr_row = QHBoxLayout()
-        self.chk_auto_thr = QCheckBox("Auto-threshold (gemiddeld uit modellen)")
+        self.chk_auto_thr = QCheckBox("Auto-threshold (averaged from models)")
         self.chk_auto_thr.setChecked(True)
         self.chk_auto_thr.setToolTip(
-            "Als aangevinkt: gebruikt automatisch de optimale threshold\n"
-            "die tijdens de training van elk model is bepaald.\n"
-            "De uiteindelijke threshold is het gemiddelde over alle folds.\n\n"
-            "Aanbevolen voor de meeste situaties."
+            "If checked: automatically uses the optimal threshold\n"
+            "determined during training of each model.\n"
+            "The final threshold is the average across all folds.\n\n"
+            "Recommended for most situations."
         )
         self.chk_auto_thr.toggled.connect(self._on_auto_thr_toggled)
         ens_thr_row.addWidget(self.chk_auto_thr)
         ev.addLayout(ens_thr_row)
 
         ens_thr2_row = QHBoxLayout()
-        ens_thr2_row.addWidget(QLabel("Vaste threshold:"))
+        ens_thr2_row.addWidget(QLabel("Fixed threshold:"))
         self.spn_ens_threshold = QDoubleSpinBox()
         self.spn_ens_threshold.setRange(0.01, 0.99)
         self.spn_ens_threshold.setValue(0.5)
         self.spn_ens_threshold.setSingleStep(0.05)
         self.spn_ens_threshold.setEnabled(False)
         self.spn_ens_threshold.setToolTip(
-            "Handmatige threshold voor de ensemble-kanskaart (0.01–0.99).\n\n"
-            "Pixels met een voorspelde kans ≥ threshold worden als aggregaat gelabeld.\n\n"
-            "Lager (bijv. 0.3): meer/grotere detecties, meer vals-positieven.\n"
-            "Hoger (bijv. 0.7): minder/kleinere detecties, minder vals-positieven.\n\n"
-            "Alleen actief als 'Auto-threshold' is uitgevinkt."
+            "Manual threshold for the ensemble probability map (0.01–0.99).\n\n"
+            "Pixels with a predicted probability ≥ threshold are labelled as aggregate.\n\n"
+            "Lower (e.g. 0.3): more/larger detections, more false positives.\n"
+            "Higher (e.g. 0.7): fewer/smaller detections, fewer false positives.\n\n"
+            "Only active when 'Auto-threshold' is unchecked."
         )
         ens_thr2_row.addWidget(self.spn_ens_threshold)
         ev.addLayout(ens_thr2_row)
@@ -2013,8 +2013,8 @@ class DeepLearningTab(QWidget):
         self.chk_ens_tta = QCheckBox("Test-Time Augmentation (TTA, 8×)")
         self.chk_ens_tta.setChecked(True)
         self.chk_ens_tta.setToolTip(
-            "Middelt 8 augmentaties (4 rotaties + 2 spiegelingen).\n"
-            "Verbetert kwaliteit maar is ~8× langzamer."
+            "Averages 8 augmentations (4 rotations + 2 flips).\n"
+            "Improves quality but is ~8× slower."
         )
         ev.addWidget(self.chk_ens_tta)
 
@@ -2023,12 +2023,12 @@ class DeepLearningTab(QWidget):
         self.cmb_device = QComboBox()
         self.cmb_device.addItems(["auto", "cpu", "cuda", "mps"])
         self.cmb_device.setToolTip(
-            "Kies op welke hardware de inferentie wordt uitgevoerd:\n\n"
-            "  • auto  — kiest automatisch GPU (cuda) als beschikbaar, anders cpu\n"
-            "  • cpu   — gebruik de processor (langzamer, altijd beschikbaar)\n"
-            "  • cuda  — gebruik een NVIDIA GPU (veel sneller, vereist CUDA-driver)\n"
-            "  • mps   — gebruik Apple Silicon GPU (M1/M2/M3 Mac)\n\n"
-            "Bij CUDA-fouten: stel in op 'cpu' als tijdelijke oplossing."
+            "Choose the hardware on which inference will run:\n\n"
+            "  • auto  — automatically selects GPU (cuda) if available, otherwise cpu\n"
+            "  • cpu   — use the processor (slower, always available)\n"
+            "  • cuda  — use an NVIDIA GPU (much faster, requires CUDA driver)\n"
+            "  • mps   — use Apple Silicon GPU (M1/M2/M3 Mac)\n\n"
+            "For CUDA errors: set to 'cpu' as a temporary fix."
         )
         device_row.addWidget(self.cmb_device)
         ev.addLayout(device_row)
@@ -2042,103 +2042,103 @@ class DeepLearningTab(QWidget):
         self.spn_min_area.setRange(1, 9999)
         self.spn_min_area.setValue(5)
         self.spn_min_area.setToolTip(
-            "Minimaal oppervlak (in pixels²) van een gedetecteerd object.\n\n"
-            "Objecten kleiner dan deze waarde worden verwijderd als ruis.\n\n"
-            "Te laag: ruis-pieken worden meegenomen als vals-positieven.\n"
-            "Te hoog: kleine echte aggregaten worden weggefilterd.\n\n"
-            "Typische waarde: 5–50 px² afhankelijk van de microscopie-resolutie."
+            "Minimum area (in pixels²) of a detected object.\n\n"
+            "Objects smaller than this value are removed as noise.\n\n"
+            "Too low: noise peaks are included as false positives.\n"
+            "Too high: small genuine aggregates are filtered out.\n\n"
+            "Typical value: 5–50 px² depending on microscopy resolution."
         )
-        pf.addRow("Min oppervlak (px²):", self.spn_min_area)
+        pf.addRow("Min area (px²):", self.spn_min_area)
 
         self.spn_max_area = QSpinBox()
         self.spn_max_area.setRange(1, 999999)
         self.spn_max_area.setValue(50000)
         self.spn_max_area.setToolTip(
-            "Maximaal oppervlak (in pixels²) van een gedetecteerd object.\n\n"
-            "Objecten groter dan deze waarde worden verwijderd.\n"
-            "Voorkomt dat grote artefacten (bijv. dode cellen, debris) worden meegenomen.\n\n"
-            "Stel hoog in als je ook grote aggregaatclusters wilt detecteren."
+            "Maximum area (in pixels²) of a detected object.\n\n"
+            "Objects larger than this value are removed.\n"
+            "Prevents large artefacts (e.g. dead cells, debris) from being included.\n\n"
+            "Set high if you also want to detect large aggregate clusters."
         )
-        pf.addRow("Max oppervlak (px²):", self.spn_max_area)
+        pf.addRow("Max area (px²):", self.spn_max_area)
 
         lv.addWidget(grp_post)
 
-        grp_ov = QGroupBox("🖍  Overlay-opties")
+        grp_ov = QGroupBox("🖍  Overlay Options")
         ovf = QFormLayout(grp_ov)
-        self.chk_show_circles = QCheckBox("Teken contouren")
+        self.chk_show_circles = QCheckBox("Draw contours")
         self.chk_show_circles.setChecked(True)
         self.chk_show_circles.setToolTip(
-            "Tekent de omtreklijn van elk gedetecteerd object over het beeld.\n"
-            "Maakt de exacte grenzen van de segmentatie zichtbaar."
+            "Draws the outline of each detected object over the image.\n"
+            "Makes the exact boundaries of the segmentation visible."
         )
-        self.chk_show_numbers = QCheckBox("Toon nummers")
+        self.chk_show_numbers = QCheckBox("Show numbers")
         self.chk_show_numbers.setChecked(True)
         self.chk_show_numbers.setToolTip(
-            "Toont het ID-nummer van elk object in het centrum van de contour.\n"
-            "Handig om specifieke objecten terug te vinden in de CSV-export."
+            "Shows the ID number of each object at the centre of the contour.\n"
+            "Useful for locating specific objects in the CSV export."
         )
-        self.chk_show_fill    = QCheckBox("Gevuld gebied")
+        self.chk_show_fill    = QCheckBox("Filled region")
         self.chk_show_fill.setChecked(True)
         self.chk_show_fill.setToolTip(
-            "Kleurt het oppervlak van elk gedetecteerd object in met een semi-transparante kleur.\n"
-            "Geeft een beter overzicht van de totale segmentatie dan alleen contouren."
+            "Fills the area of each detected object with a semi-transparent colour.\n"
+            "Gives a better overview of the total segmentation than contours alone."
         )
         self.cmb_circle_color = QComboBox()
         self.cmb_circle_color.addItems(["#00ffcc","#ff4466","#ffff00","#ffffff","#00aaff","#ff8800"])
         self.cmb_circle_color.setToolTip(
-            "Kleur van de getekende contouren:\n"
-            "  #00ffcc — cyaan (standaard, goed zichtbaar op donkere achtergrond)\n"
-            "  #ff4466 — rood/roze\n"
-            "  #ffff00 — geel\n"
-            "  #ffffff — wit\n"
-            "  #00aaff — blauw\n"
-            "  #ff8800 — oranje"
+            "Color of the drawn contours:\n"
+            "  #00ffcc — cyan (default, clearly visible on dark background)\n"
+            "  #ff4466 — red/pink\n"
+            "  #ffff00 — yellow\n"
+            "  #ffffff — white\n"
+            "  #00aaff — blue\n"
+            "  #ff8800 — orange"
         )
         self.spn_circle_lw  = QDoubleSpinBox()
         self.spn_circle_lw.setRange(0.3, 5); self.spn_circle_lw.setValue(1.2)
         self.spn_circle_lw.setToolTip(
-            "Lijnbreedte van de getekende contouren in punten.\n\n"
-            "Dunner (0.3–1.0): minder opvallend, meer detail zichtbaar.\n"
-            "Dikker (2.0–5.0): beter zichtbaar bij kleine objecten of exportafbeeldingen."
+            "Line width of the drawn contours in points.\n\n"
+            "Thinner (0.3–1.0): less conspicuous, more detail visible.\n"
+            "Thicker (2.0–5.0): better visible for small objects or exported images."
         )
         self.spn_font_size  = QDoubleSpinBox()
         self.spn_font_size.setRange(3, 16); self.spn_font_size.setValue(6.5)
         self.spn_font_size.setToolTip(
-            "Lettergrootte van de object-ID-nummers in punten.\n\n"
-            "Pas aan op basis van de grootte van de objecten in het beeld:\n"
-            "klein voor kleine aggregaten (4–6), groter voor cellen (8–12)."
+            "Font size of the object ID numbers in points.\n\n"
+            "Adjust based on the size of objects in the image:\n"
+            "small for small aggregates (4–6), larger for cells (8–12)."
         )
         self.cmb_cmap       = QComboBox()
         self.cmb_cmap.addItems(["hot","gray","inferno","magma","viridis","plasma"])
         self.cmb_cmap.setToolTip(
-            "Kleurkaart voor de achtergrondafbeelding in de resultatenweergave.\n\n"
-            "  • hot     — zwart → rood → wit (goed voor fluorescentiemicroscopie)\n"
-            "  • gray    — grijswaarden\n"
-            "  • inferno — zwart → paars → oranje → wit\n"
-            "  • magma   — zwart → paars → roze → wit\n"
-            "  • viridis — donkerblauw → groen → geel (kleurblindveilig)\n"
-            "  • plasma  — blauw → paars → geel"
+            "Color map for the background image in the results display.\n\n"
+            "  • hot     — black → red → white (good for fluorescence microscopy)\n"
+            "  • gray    — grayscale\n"
+            "  • inferno — black → purple → orange → white\n"
+            "  • magma   — black → purple → pink → white\n"
+            "  • viridis — dark blue → green → yellow (colorblind-safe)\n"
+            "  • plasma  — blue → purple → yellow"
         )
         ovf.addWidget(self.chk_show_circles)
         ovf.addWidget(self.chk_show_numbers)
         ovf.addWidget(self.chk_show_fill)
-        ovf.addRow("Kleur:",         self.cmb_circle_color)
-        ovf.addRow("Lijnbreedte:",   self.spn_circle_lw)
-        ovf.addRow("Lettergrootte:", self.spn_font_size)
-        ovf.addRow("Achtergrond:",   self.cmb_cmap)
+        ovf.addRow("Color:",         self.cmb_circle_color)
+        ovf.addRow("Line width:",   self.spn_circle_lw)
+        ovf.addRow("Font size:", self.spn_font_size)
+        ovf.addRow("Background:",   self.cmb_cmap)
         lv.addWidget(grp_ov)
 
-        self.btn_run_ensemble = QPushButton("▶  Ensemble Segmentatie uitvoeren")
+        self.btn_run_ensemble = QPushButton("▶  Run Ensemble Segmentation")
         self.btn_run_ensemble.setObjectName("primary")
         self.btn_run_ensemble.setToolTip(
-            "Start de ensemble deep learning segmentatie op het huidige beeld.\n\n"
-            "Het algoritme:\n"
-            "  1. Laadt alle model_fold*.pth bestanden uit de geselecteerde map\n"
-            "  2. Voert inferentie uit op elk model (eventueel met TTA)\n"
-            "  3. Middelt de kanskaarten van alle modellen\n"
-            "  4. Drempelt de gemiddelde kanskaart (threshold)\n"
-            "  5. Past morfologische filtering toe (min/max oppervlak)\n\n"
-            "Let op: dit kan enkele minuten duren op een CPU."
+            "Starts the ensemble deep learning segmentation on the current image.\n\n"
+            "The algorithm:\n"
+            "  1. Loads all model_fold*.pth files from the selected folder\n"
+            "  2. Runs inference on each model (optionally with TTA)\n"
+            "  3. Averages the probability maps of all models\n"
+            "  4. Thresholds the averaged probability map\n"
+            "  5. Applies morphological filtering (min/max area)\n\n"
+            "Note: this may take several minutes on a CPU."
         )
         self.btn_run_ensemble.clicked.connect(self._run_ensemble)
         lv.addWidget(self.btn_run_ensemble)
@@ -2153,7 +2153,7 @@ class DeepLearningTab(QWidget):
         self.lbl_status.setWordWrap(True)
         lv.addWidget(self.lbl_status)
 
-        grp_stats = QGroupBox("📊  Statistieken")
+        grp_stats = QGroupBox("📊  Statistics")
         sv = QVBoxLayout(grp_stats)
         self.txt_stats = QTextEdit()
         self.txt_stats.setReadOnly(True)
@@ -2161,27 +2161,27 @@ class DeepLearningTab(QWidget):
         sv.addWidget(self.txt_stats)
         lv.addWidget(grp_stats)
 
-        btn_csv = QPushButton("💾  Exporteer CSV")
+        btn_csv = QPushButton("💾  Export CSV")
         btn_csv.setToolTip(
-            "Exporteert de eigenschappen van alle gedetecteerde objecten naar een CSV-bestand.\n\n"
-            "Kolommen per object:\n"
-            "  • id, x, y         — identificatie en positie (centroïde)\n"
-            "  • area_px2         — oppervlak in pixels²\n"
-            "  • mean/max_intensity — gemiddelde en maximale pixelintensiteit\n"
-            "  • eccentricity     — mate van ellipsvorm (0=cirkel, 1=lijnstuk)\n"
-            "  • perimeter        — omtreklengte in pixels\n"
-            "  • solidity         — vulgraad (convex hull)\n"
-            "  • radius_px        — equivalente straal"
+            "Exports the properties of all detected objects to a CSV file.\n\n"
+            "Columns per object:\n"
+            "  • id, x, y         — identification and position (centroid)\n"
+            "  • area_px2         — area in pixels²\n"
+            "  • mean/max_intensity — average and maximum pixel intensity\n"
+            "  • eccentricity     — degree of ellipse shape (0=circle, 1=line segment)\n"
+            "  • perimeter        — perimeter length in pixels\n"
+            "  • solidity         — fill ratio (convex hull)\n"
+            "  • radius_px        — equivalent radius"
         )
         btn_csv.clicked.connect(self._export_csv)
         lv.addWidget(btn_csv)
 
-        btn_img = QPushButton("🖼  Exporteer geannoteerd beeld")
+        btn_img = QPushButton("🖼  Export annotated image")
         btn_img.setToolTip(
-            "Slaat een afbeelding op met het originele beeld en het geannoteerde\n"
-            "segmentatieresultaat naast elkaar (PNG of TIFF).\n\n"
-            "De afbeelding toont de contouren en kleuring zoals ingesteld\n"
-            "in de Overlay-opties."
+            "Saves an image with the original image and the annotated\n"
+            "segmentation result side by side (PNG or TIFF).\n\n"
+            "The image shows contours and colouring as configured\n"
+            "in the Overlay Options."
         )
         btn_img.clicked.connect(self._export_image)
         lv.addWidget(btn_img)
@@ -2206,20 +2206,20 @@ class DeepLearningTab(QWidget):
 
     def _load_model_dir(self):
         folder = QFileDialog.getExistingDirectory(
-            self, "Selecteer map met model_fold*.pth bestanden", ""
+            self, "Select folder with model_fold*.pth files", ""
         )
         if not folder:
             return
         model_files = sorted(Path(folder).glob("model_fold*.pth"))
         if not model_files:
             QMessageBox.warning(
-                self, "Geen modellen gevonden",
-                f"Geen model_fold*.pth bestanden gevonden in:\n{folder}"
+                self, "No models found",
+                f"No model_fold*.pth files found in:\n{folder}"
             )
             return
         self._model_dir = folder
         self.lbl_ensemble_path.setText(f"✅  {Path(folder).name}")
-        self.lbl_ensemble_info.setText(f"{len(model_files)} modellen gevonden")
+        self.lbl_ensemble_info.setText(f"{len(model_files)} models found")
 
         if HAS_TORCH:
             try:
@@ -2233,25 +2233,25 @@ class DeepLearningTab(QWidget):
                     avg = float(np.mean(thresholds))
                     self.spn_ens_threshold.setValue(avg)
                     self.lbl_ensemble_info.setText(
-                        f"{len(model_files)} modellen  |  gem. threshold: {avg:.2f}"
+                        f"{len(model_files)} models  |  avg. threshold: {avg:.2f}"
                     )
             except Exception:
                 pass
 
     def _run_ensemble(self):
         if not self._model_dir:
-            QMessageBox.warning(self, "Geen map", "Laad eerst een modellenmap.")
+            QMessageBox.warning(self, "No folder", "Load a model folder first.")
             return
         if not HAS_SMP:
             QMessageBox.critical(
-                self, "Package ontbreekt",
-                "Installeer segmentation_models_pytorch:\n"
+                self, "Package missing",
+                "Install segmentation_models_pytorch:\n"
                 "  pip install segmentation-models-pytorch"
             )
             return
         img = self._get_image()
         if img is None:
-            QMessageBox.warning(self, "Geen beeld", "Laad en verwerk eerst een beeld.")
+            QMessageBox.warning(self, "No image", "Load and process an image first.")
             return
 
         thr_override = None if self.chk_auto_thr.isChecked() \
@@ -2259,7 +2259,7 @@ class DeepLearningTab(QWidget):
 
         self.btn_run_ensemble.setEnabled(False)
         self.progress.setVisible(True)
-        self.lbl_status.setText("Ensemble inferentie bezig…")
+        self.lbl_status.setText("Running ensemble inference…")
 
         self._ensemble_worker = EnsembleDLWorker(
             img=img,
@@ -2279,7 +2279,7 @@ class DeepLearningTab(QWidget):
         self.btn_run_ensemble.setEnabled(True)
         self.progress.setVisible(False)
         self.lbl_status.setText(
-            f"Klaar: {result.n_objects} objecten  |  {result.time_seconds:.2f}s"
+            f"Done: {result.n_objects} objects  |  {result.time_seconds:.2f}s"
         )
         self._display_result(result)
         self._show_stats(result)
@@ -2288,8 +2288,8 @@ class DeepLearningTab(QWidget):
     def _on_error(self, err: str):
         self.btn_run_ensemble.setEnabled(True)
         self.progress.setVisible(False)
-        self.lbl_status.setText("❌  Fout tijdens inferentie")
-        QMessageBox.critical(self, "Deep Learning fout", err)
+        self.lbl_status.setText("❌  Error during inference")
+        QMessageBox.critical(self, "Deep Learning error", err)
 
     def _display_result(self, result: SegmentationResult):
         img  = self._get_image()
@@ -2305,7 +2305,7 @@ class DeepLearningTab(QWidget):
         axes = self.canvas.fig.subplots(1, 2)
 
         axes[0].imshow(img, cmap=cmap, aspect="equal", interpolation="nearest")
-        axes[0].set_title("Pre-processed invoer", color="#79c0ff", fontsize=10)
+        axes[0].set_title("Pre-processed input", color="#79c0ff", fontsize=10)
         axes[0].axis("off"); axes[0].set_facecolor("#0d1117")
 
         if show_fill and result.label_image is not None and result.label_image.max() > 0:
@@ -2331,32 +2331,32 @@ class DeepLearningTab(QWidget):
 
     def _show_stats(self, result: SegmentationResult):
         if not result.properties:
-            self.txt_stats.setPlainText(f"Aantal objecten: {result.n_objects}\nGeen eigenschappen.")
+            self.txt_stats.setPlainText(f"Number of objects: {result.n_objects}\nNo properties.")
             return
         areas = [p.get("area_px2", 0) for p in result.properties]
         ints  = [p.get("mean_intensity", 0) for p in result.properties]
         rads  = [p.get("radius_px", 0) for p in result.properties]
         self.txt_stats.setPlainText(
-            f"Methode:        {result.method_name}\n"
+            f"Method:         {result.method_name}\n"
             f"Aantal obj.:    {result.n_objects}\n"
             f"Tijd:           {result.time_seconds:.3f} s\n"
-            f"\n── Oppervlak (px²) ──\n"
+            f"\n── Area (px²) ──\n"
             f"  Gemiddeld: {np.mean(areas):.1f}\n"
             f"  Mediaan:   {np.median(areas):.1f}\n"
             f"  Min/Max:   {np.min(areas):.0f} / {np.max(areas):.0f}\n"
-            f"\n── Straal (px) ──\n"
+            f"\n── Radius (px) ──\n"
             f"  Gemiddeld: {np.mean(rads):.1f}\n"
             f"  Mediaan:   {np.median(rads):.1f}\n"
-            f"\n── Gemiddelde intensiteit ──\n"
+            f"\n── Mean intensity ──\n"
             f"  Gemiddeld: {np.mean(ints):.4f}\n"
             f"  Mediaan:   {np.median(ints):.4f}\n"
         )
 
     def _export_csv(self):
         if not self.current_result or not self.current_result.properties:
-            QMessageBox.warning(self, "Geen data", "Voer eerst segmentatie uit.")
+            QMessageBox.warning(self, "No data", "Run segmentation first.")
             return
-        path, _ = QFileDialog.getSaveFileName(self, "Sla CSV op", "", "CSV (*.csv)")
+        path, _ = QFileDialog.getSaveFileName(self, "Save CSV", "", "CSV (*.csv)")
         if not path:
             return
         props = self.current_result.properties
@@ -2364,14 +2364,14 @@ class DeepLearningTab(QWidget):
         with open(path, "w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=keys)
             w.writeheader(); w.writerows(props)
-        QMessageBox.information(self, "Opgeslagen", f"{len(props)} objecten → {path}")
+        QMessageBox.information(self, "Saved", f"{len(props)} objects → {path}")
 
     def _export_image(self):
         if self.current_result is None:
-            QMessageBox.warning(self, "Geen resultaat", "Voer eerst segmentatie uit.")
+            QMessageBox.warning(self, "No result", "Run segmentation first.")
             return
         path, _ = QFileDialog.getSaveFileName(
-            self, "Sla geannoteerd beeld op", "",
+            self, "Save annotated image", "",
             "PNG (*.png);;TIFF (*.tif)"
         )
         if not path:
@@ -2381,7 +2381,7 @@ class DeepLearningTab(QWidget):
         cmap = self.cmb_cmap.currentText()
         fig, axes = plt.subplots(1, 2, figsize=(14, 7), facecolor="#0d1117")
         axes[0].imshow(img, cmap=cmap, aspect="equal")
-        axes[0].set_title("Invoer", color="#79c0ff"); axes[0].axis("off")
+        axes[0].set_title("Input", color="#79c0ff"); axes[0].axis("off")
         if self.chk_show_fill.isChecked() and self.current_result.label_image is not None:
             overlay = overlay_labels_on_image(img, self.current_result.label_image)
             axes[1].imshow(overlay, aspect="equal")
@@ -2401,23 +2401,23 @@ class DeepLearningTab(QWidget):
         fig.tight_layout()
         fig.savefig(path, dpi=150, bbox_inches="tight", facecolor="#0d1117")
         plt.close(fig)
-        QMessageBox.information(self, "Opgeslagen", f"Beeld opgeslagen: {path}")
+        QMessageBox.information(self, "Saved", f"Image saved: {path}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  TAB 5 — CORRIGEER (Ground-truth annotaties corrigeren)
+#  TAB 5 — CORRECT (Correcting ground-truth annotations)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class CorrectionTab(QWidget):
     """
-    Werkwijze:
-      1. Laad je handmatige ground-truth masker.
-      2. De DL-detecties worden erover gelegd:
-           GROEN  = DL-regio overlapt voldoende met GT  → al goedgekeurd
-           ROOD   = DL-regio overlapt NIET met GT      → klik om toch goed te keuren
-      3. Klik op een rode regio om hem alsnog groen (goedgekeurd) te maken.
-         Je kunt ook op een groene regio klikken om hem terug rood te zetten.
-      4. Stuur het gecorrigeerde masker naar Validatie.
+    Workflow:
+      1. Load your manual ground-truth mask.
+      2. DL detections are overlaid on it:
+           GREEN  = DL region overlaps sufficiently with GT  → already approved
+           RED    = DL region does NOT overlap GT           → click to approve anyway
+      3. Click on a red region to make it green (approved).
+         You can also click on a green region to set it back to red.
+      4. Send the corrected mask to Validation.
     """
     corrected_mask_ready = pyqtSignal(object)
 
@@ -2431,18 +2431,18 @@ class CorrectionTab(QWidget):
         self.gt_mask: Optional[np.ndarray] = None
         self.gt_path = ""
 
-        # per DL-label-id: True = goedgekeurd (groen), False = afgekeurd (rood)
+        # per DL label id: True = approved (green), False = rejected (red)
         self._region_status: Dict[int, bool] = {}
-        # regio-properties cache
+        # region-properties cache
         self._dl_regions: List[Dict] = []
 
-        # per GT-label-id: True = actief (blauw), False = verwijderd door gebruiker
+        # per GT label id: True = active (blue), False = removed by user
         self._gt_region_status: Dict[int, bool] = {}
-        # GT-regio-properties cache (gelabeld masker)
+        # GT region-properties cache (labelled mask)
         self._gt_label_image: Optional[np.ndarray] = None
         self._gt_regions: List[Dict] = []
 
-        self._cid = None   # matplotlib click-verbinding
+        self._cid = None   # matplotlib click connection
         self._build_ui()
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -2451,61 +2451,61 @@ class CorrectionTab(QWidget):
         root.setSpacing(8)
         root.setContentsMargins(8, 8, 8, 8)
 
-        # ── Actie-balk ──────────────────────────────────────────────────────
-        grp_actions = QGroupBox("⚙️  Acties")
+        # ── Action bar ──────────────────────────────────────────────────────
+        grp_actions = QGroupBox("⚙️  Actions")
         av = QHBoxLayout(grp_actions)
         av.setSpacing(8)
 
-        self.btn_load_gt = QPushButton("📂  Laad GT-masker")
+        self.btn_load_gt = QPushButton("📂  Load GT Mask")
         self.btn_load_gt.setObjectName("primary")
         self.btn_load_gt.setToolTip(
-            "Laad een handmatig geannoteerd ground-truth masker (TIFF-bestand).\n\n"
-            "Dit masker bevat de 'correcte' segmentatie waartegen de\n"
-            "DL-detecties worden vergeleken.\n\n"
-            "Wit (255) = aggregaat aanwezig, Zwart (0) = geen aggregaat."
+            "Load a manually annotated ground-truth mask (TIFF file).\n\n"
+            "This mask contains the 'correct' segmentation against which\n"
+            "DL detections are compared.\n\n"
+            "White (255) = aggregate present, Black (0) = no aggregate."
         )
         self.btn_load_gt.clicked.connect(self._load_gt_mask)
         av.addWidget(self.btn_load_gt)
 
-        self.btn_refresh = QPushButton("🔄  Vernieuw / haal DL-resultaat op")
+        self.btn_refresh = QPushButton("🔄  Refresh / fetch DL result")
         self.btn_refresh.setToolTip(
-            "Haalt het laatste segmentatieresultaat op uit de Deep Learning-tab\n"
-            "en vergelijkt dit automatisch met het geladen GT-masker.\n\n"
-            "Groene contouren = DL-detectie overlapt met GT (terecht positief).\n"
-            "Rode contouren = DL-detectie overlapt NIET met GT (mogelijk fout-positief).\n"
-            "Blauwe contouren = GT-regio (handmatige annotatie)."
+            "Fetches the latest segmentation result from the Deep Learning tab\n"
+            "and automatically compares it with the loaded GT mask.\n\n"
+            "Green contours = DL detection overlaps with GT (true positive).\n"
+            "Red contours = DL detection does NOT overlap GT (possible false positive).\n"
+            "Blue contours = GT region (manual annotation)."
         )
         self.btn_refresh.clicked.connect(self._auto_classify_and_draw)
         self.btn_refresh.setEnabled(False)
         av.addWidget(self.btn_refresh)
 
-        self.btn_reset = QPushButton("↺  Reset alle correcties")
+        self.btn_reset = QPushButton("↺  Reset All Corrections")
         self.btn_reset.setToolTip(
-            "Zet alle handmatige correcties terug naar de automatische classificatie.\n"
-            "Alle groene/rode statussen worden opnieuw berekend op basis\n"
-            "van de overlap met het GT-masker."
+            "Resets all manual corrections to the automatic classification.\n"
+            "All green/red statuses are recalculated based\n"
+            "on the overlap with the GT mask."
         )
         self.btn_reset.clicked.connect(self._reset_corrections)
         self.btn_reset.setEnabled(False)
         av.addWidget(self.btn_reset)
 
-        self.btn_send = QPushButton("✅  Stuur gecorrigeerd masker naar Validatie")
+        self.btn_send = QPushButton("✅  Send Corrected Mask to Validation")
         self.btn_send.setObjectName("primary")
         self.btn_send.setToolTip(
-            "Stuurt het gecorrigeerde masker (na jouw aanpassingen) door\n"
-            "naar de Validatie-tab voor kwantitatieve evaluatie.\n\n"
-            "Goedgekeurde regio's + actieve GT-regio's worden samengevoegd\n"
-            "tot het definitieve gecorrigeerde masker."
+            "Sends the corrected mask (after your adjustments) to\n"
+            "the Validation tab for quantitative evaluation.\n\n"
+            "Approved regions + active GT regions are merged\n"
+            "into the final corrected mask."
         )
         self.btn_send.clicked.connect(self._send_to_validation)
         self.btn_send.setEnabled(False)
         av.addWidget(self.btn_send)
 
-        self.btn_save_mask = QPushButton("💾  Sla gecorrigeerd masker op")
+        self.btn_save_mask = QPushButton("💾  Save Corrected Mask")
         self.btn_save_mask.setToolTip(
-            "Slaat het gecorrigeerde masker op als TIFF-bestand.\n"
-            "Dit masker kan later opnieuw worden geladen als GT-masker\n"
-            "of worden gebruikt voor verdere analyse."
+            "Saves the corrected mask as a TIFF file.\n"
+            "This mask can be reloaded later as a GT mask\n"
+            "or used for further analysis."
         )
         self.btn_save_mask.clicked.connect(self._save_corrected_mask)
         self.btn_save_mask.setEnabled(False)
@@ -2514,12 +2514,12 @@ class CorrectionTab(QWidget):
         av.addStretch()
         root.addWidget(grp_actions)
 
-        # ── Status-label ─────────────────────────────────────────────────────
+        # ── Status label ─────────────────────────────────────────────────────
         self.lbl_status = QLabel(
-            "Stap 1: Laad een ground-truth masker.  "
-            "Stap 2: Klik 'Vernieuw' om DL-detecties te klassificeren.  "
-            "Stap 3: Klik op rode regio's (goedkeuren) of blauwe GT-regio's (verwijderen).  "
-            "Stap 4: Stuur naar Validatie."
+            "Step 1: Load a ground-truth mask.  "
+            "Step 2: Click 'Refresh' to classify DL detections.  "
+            "Step 3: Click on red regions (approve) or blue GT regions (remove).  "
+            "Step 4: Send to Validation."
         )
         self.lbl_status.setWordWrap(True)
         self.lbl_status.setStyleSheet(
@@ -2528,22 +2528,22 @@ class CorrectionTab(QWidget):
         )
         root.addWidget(self.lbl_status)
 
-        # ── Hoofd-layout: links = legenda/teller, rechts = canvas ───────────
+        # ── Main layout: left = legend/counter, right = canvas ───────────
         mid = QHBoxLayout()
         mid.setSpacing(8)
 
-        # links: legenda + teller
+        # left: legend + counter
         left = QWidget()
         left.setFixedWidth(220)
         lv = QVBoxLayout(left)
         lv.setSpacing(8)
 
-        grp_legend = QGroupBox("🎨  Legenda")
+        grp_legend = QGroupBox("🎨  Legend")
         lv2 = QVBoxLayout(grp_legend)
         for color, txt in [
-            ("#00c850", "✔  Goedgekeurd (overlapt GT)"),
-            ("#e03030", "✖  Niet goedgekeurd (klik om te corrigeren)"),
-            ("#4488ff", "◌  GT-regio (blauw; klik om te verwijderen)"),
+            ("#00c850", "✔  Approved (overlaps GT)"),
+            ("#e03030", "✖  Not approved (click to correct)"),
+            ("#4488ff", "◌  GT region (blue; click to remove)"),
         ]:
             row = QHBoxLayout()
             dot = QLabel("●")
@@ -2556,7 +2556,7 @@ class CorrectionTab(QWidget):
             lv2.addLayout(row)
         lv.addWidget(grp_legend)
 
-        grp_count = QGroupBox("📊  Teller")
+        grp_count = QGroupBox("📊  Counter")
         cv = QFormLayout(grp_count)
         self.lbl_n_green = QLabel("—")
         self.lbl_n_red   = QLabel("—")
@@ -2565,21 +2565,21 @@ class CorrectionTab(QWidget):
         self.lbl_n_green.setStyleSheet("color:#3fb950; font-weight:bold;")
         self.lbl_n_red.setStyleSheet("color:#f85149; font-weight:bold;")
         self.lbl_n_gt_removed.setStyleSheet("color:#79c0ff; font-weight:bold;")
-        cv.addRow("Goedgekeurd:",   self.lbl_n_green)
-        cv.addRow("Afgekeurd:",     self.lbl_n_red)
-        cv.addRow("Totaal DL:",     self.lbl_n_total)
-        cv.addRow("GT verwijderd:", self.lbl_n_gt_removed)
+        cv.addRow("Approved:",   self.lbl_n_green)
+        cv.addRow("Rejected:",     self.lbl_n_red)
+        cv.addRow("Total DL:",     self.lbl_n_total)
+        cv.addRow("GT removed:", self.lbl_n_gt_removed)
         lv.addWidget(grp_count)
 
         grp_tip = QGroupBox("💡  Tip")
         tv = QVBoxLayout(grp_tip)
         tip_lbl = QLabel(
-            "Klik op een <b style='color:#e03030'>rode</b> regio om hem "
-            "<b style='color:#00c850'>groen</b> (goedgekeurd) te maken.<br><br>"
-            "Klik op een <b style='color:#00c850'>groene</b> regio om hem "
-            "terug <b style='color:#e03030'>rood</b> te zetten.<br><br>"
-            "Klik op een <b style='color:#4488ff'>blauwe GT-regio</b> om hem "
-            "te verwijderen uit het masker."
+            "Click on a <b style='color:#e03030'>red</b> region to make it "
+            "<b style='color:#00c850'>green</b> (approved).<br><br>"
+            "Click on a <b style='color:#00c850'>green</b> region to set it "
+            "back to <b style='color:#e03030'>red</b>.<br><br>"
+            "Click on a <b style='color:#4488ff'>blue GT region</b> to "
+            "remove it from the mask."
         )
         tip_lbl.setWordWrap(True)
         tip_lbl.setStyleSheet("color:#8b949e; font-size:11px;")
@@ -2589,7 +2589,7 @@ class CorrectionTab(QWidget):
         lv.addStretch()
         mid.addWidget(left)
 
-        # rechts: canvas
+        # right: canvas
         right_w = QWidget()
         rv = QVBoxLayout(right_w)
         rv.setSpacing(4)
@@ -2606,35 +2606,35 @@ class CorrectionTab(QWidget):
         root.addLayout(mid, stretch=1)
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Masker laden
+    # Load mask
     # ──────────────────────────────────────────────────────────────────────────
     def _load_gt_mask(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "Laad Ground-Truth Masker", "",
-            "Masker-bestanden (*.tif *.tiff *.png);;Alle bestanden (*)"
+            self, "Load Ground-Truth Mask", "",
+            "Mask files (*.tif *.tiff *.png);;All files (*)"
         )
         if not path:
             return
         try:
             mask = _load_gt_mask_from_file(path)
         except Exception as e:
-            QMessageBox.critical(self, "Fout bij laden", f"Kan masker niet laden:\n{e}")
+            QMessageBox.critical(self, "Error loading", f"Kan masker niet laden:\n{e}")
             return
         if mask.sum() == 0:
-            QMessageBox.warning(self, "Leeg masker",
-                                "Het geladen masker bevat geen foreground-pixels.")
+            QMessageBox.warning(self, "Empty mask",
+                                "The loaded mask contains no foreground pixels.")
             return
 
         self.gt_mask = mask
         self.gt_path = path
 
-        # Label de GT-regio's voor klik-detectie en verwijdering
+        # Label GT regions for click detection and removal
         gt_labeled = label(mask.astype(bool))
         self._gt_label_image = gt_labeled
         self._gt_region_status = {}
         self._gt_regions = []
         for region in regionprops(gt_labeled):
-            self._gt_region_status[region.label] = True   # standaard actief (blauw)
+            self._gt_region_status[region.label] = True   # default active (blue)
             self._gt_regions.append({
                 "label": region.label,
                 "cy": region.centroid[0],
@@ -2645,9 +2645,9 @@ class CorrectionTab(QWidget):
         n_pos = int(mask.sum())
         pct   = 100.0 * n_pos / mask.size
         self.lbl_status.setText(
-            f"✅  GT geladen: {Path(path).name}  |  Vorm: {mask.shape}  |  "
+            f"✅  GT loaded: {Path(path).name}  |  Shape: {mask.shape}  |  "
             f"Foreground: {n_pos:,} px ({pct:.1f}%)  |  "
-            "Klik 'Vernieuw' om DL-detecties te laden."
+            "Click 'Refresh' to load DL detections."
         )
         self.lbl_status.setStyleSheet(
             "color:#3fb950; font-size:11px; padding:4px 8px;"
@@ -2658,7 +2658,7 @@ class CorrectionTab(QWidget):
         self._auto_classify_and_draw()
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Automatisch classificeren: groen als overlap >= drempel, anders rood
+    # Automatically classify: green if overlap >= threshold, otherwise red
     # ──────────────────────────────────────────────────────────────────────────
     def _auto_classify_and_draw(self):
         if self.gt_mask is None:
@@ -2673,7 +2673,7 @@ class CorrectionTab(QWidget):
             self._dl_regions = []
             self._draw(dl_label)
             self.lbl_status.setText(
-                "⚠  Geen DL-segmentatie beschikbaar. "
+                "⚠  No DL segmentation available. "
                 "Voer eerst Deep Learning segmentatie uit (Tab 4)."
             )
             self.lbl_status.setStyleSheet(
@@ -2683,7 +2683,7 @@ class CorrectionTab(QWidget):
             self.btn_send.setEnabled(False)
             return
 
-        # Zorg dat masker en label-afmeting overeenkomen
+        # Ensure mask and label dimensions match
         gt = self.gt_mask
         if dl_label.shape != gt.shape:
             from skimage.transform import resize as sk_resize
@@ -2702,7 +2702,7 @@ class CorrectionTab(QWidget):
             intersection = int(np.logical_and(region_mask, gt_bool).sum())
             union = int(np.logical_or(region_mask, gt_bool).sum())
             iou = intersection / union if union > 0 else 0.0
-            # overlap = wat deel van de DL-regio in de GT valt
+            # overlap = fraction of the DL region that falls within the GT
             overlap = intersection / region.area if region.area > 0 else 0.0
             approved = overlap >= self._OVERLAP_THRESHOLD
             self._region_status[lbl_id] = approved
@@ -2721,22 +2721,22 @@ class CorrectionTab(QWidget):
         n_green = sum(1 for v in self._region_status.values() if v)
         n_red   = len(self._region_status) - n_green
         self.lbl_status.setText(
-            f"📊  {len(self._region_status)} DL-regio's geladen  |  "
-            f"Groen (goedgekeurd): {n_green}  |  Rood (klik om te corrigeren): {n_red}  |  "
-            "Klik op een rode regio om hem goed te keuren."
+            f"📊  {len(self._region_status)} DL regions loaded  |  "
+            f"Green (approved): {n_green}  |  Red (click to correct): {n_red}  |  "
+            "Click on a red region to approve it."
         )
         self.lbl_status.setStyleSheet(
             "color:#79c0ff; font-size:11px; padding:4px 8px;"
             "background:#0d1b2b; border-radius:4px; border:1px solid #1f6feb;"
         )
 
-        # Verbind klik-event
+        # Connect click event
         if self._cid is not None:
             self.canvas_corr.mpl_disconnect(self._cid)
         self._cid = self.canvas_corr.mpl_connect("button_press_event", self._on_click)
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Canvas tekenen
+    # Draw canvas
     # ──────────────────────────────────────────────────────────────────────────
     def _draw(self, dl_label: Optional[np.ndarray]):
         ax = self.canvas_corr.axes
@@ -2745,7 +2745,7 @@ class CorrectionTab(QWidget):
         ax.axis("off")
 
         if self.gt_mask is None:
-            ax.text(0.5, 0.5, "Geen masker geladen",
+            ax.text(0.5, 0.5, "No mask loaded",
                     ha="center", va="center", color="#484f58",
                     fontsize=13, transform=ax.transAxes)
             self.canvas_corr.draw_idle()
@@ -2754,13 +2754,13 @@ class CorrectionTab(QWidget):
         gt = self.gt_mask
         H, W = gt.shape
 
-        # ── Achtergrond: echte microscopie-afbeelding ────────────────────────
+        # ── Background: actual microscopy image ────────────────────────
         micro_img = None
         if self.viewer_tab is not None:
             micro_img = self.viewer_tab.get_current_image()
 
         if micro_img is not None:
-            # Normaliseer naar [0,1] voor weergave
+            # Normalise to [0,1] for display
             img_show = micro_img.astype(np.float32)
             lo, hi = np.percentile(img_show, [1, 99])
             if hi > lo:
@@ -2770,12 +2770,12 @@ class CorrectionTab(QWidget):
             ax.imshow(img_show, cmap="gray", aspect="equal",
                       interpolation="nearest", zorder=1)
         else:
-            # Fallback: donkere achtergrond met GT-pixels licht aangeduid
+            # Fallback: dark background with GT pixels faintly highlighted
             bg = np.zeros((H, W, 3), dtype=np.uint8)
             bg[gt.astype(bool)] = [50, 50, 70]
             ax.imshow(bg, aspect="equal", interpolation="nearest", zorder=1)
 
-        # ── GT-contour (blauw gestippeld) — alleen actieve regio's ─────────────
+        # ── GT contour (blue dashed) — active regions only ─────────────
         from skimage import measure as sk_measure
         if self._gt_label_image is not None:
             for gt_reg in self._gt_regions:
@@ -2794,7 +2794,7 @@ class CorrectionTab(QWidget):
                 ax.plot(c[:, 1], c[:, 0], color="#4488ff", linewidth=1.0,
                         linestyle="--", alpha=0.85, zorder=2)
 
-        # ── DL-regio's als semi-transparante overlay ─────────────────────────
+        # ── DL regions as semi-transparent overlay ─────────────────────────
         if dl_label is not None and len(self._region_status) > 0:
             green_mask = np.zeros((H, W), dtype=bool)
             red_mask   = np.zeros((H, W), dtype=bool)
@@ -2806,13 +2806,13 @@ class CorrectionTab(QWidget):
                 else:
                     red_mask |= region_px
 
-            # Gevulde vlakken (RGBA)
+            # Filled areas (RGBA)
             rgba = np.zeros((H, W, 4), dtype=np.float32)
             rgba[green_mask] = [0.0,  0.78, 0.31, 0.35]   # groen
             rgba[red_mask]   = [0.87, 0.19, 0.19, 0.40]   # rood
             ax.imshow(rgba, aspect="equal", interpolation="nearest", zorder=3)
 
-            # Contouren per regio
+            # Contours per region
             for lbl_id, approved in self._region_status.items():
                 color = "#00c850" if approved else "#e03030"
                 contours = sk_measure.find_contours(
@@ -2821,7 +2821,7 @@ class CorrectionTab(QWidget):
                     ax.plot(c[:, 1], c[:, 0], color=color,
                             linewidth=1.4, zorder=5)
 
-            # Nummers in centroid
+            # Numbers at centroid
             for reg in self._dl_regions:
                 lbl_id = reg["label"]
                 color  = "#00ff66" if self._region_status.get(lbl_id, False) else "#ff6666"
@@ -2833,16 +2833,16 @@ class CorrectionTab(QWidget):
         n_red   = len(self._region_status) - n_green
         n_gt_removed = sum(1 for v in self._gt_region_status.values() if not v)
         ax.set_title(
-            f"Corrigeer-weergave  |  "
-            f"GT-contour (blauw)  +  DL-overlay  |  "
-            f"Groen: {n_green}  ·  Rood: {n_red}  ·  GT verwijderd: {n_gt_removed}",
+            f"Correction view  |  "
+            f"GT contour (blue)  +  DL overlay  |  "
+            f"Green: {n_green}  ·  Red: {n_red}  ·  GT removed: {n_gt_removed}",
             color="#79c0ff", fontsize=10
         )
         self.canvas_corr.fig.tight_layout(pad=0.5)
         self.canvas_corr.draw_idle()
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Klik-handler: toggle status van aangeklikte regio
+    # Click handler: toggle status of clicked region
     # ──────────────────────────────────────────────────────────────────────────
     def _on_click(self, event):
         if event.inaxes != self.canvas_corr.axes:
@@ -2853,7 +2853,7 @@ class CorrectionTab(QWidget):
         cx_click = event.xdata
         cy_click = event.ydata
 
-        # ── Zoek dichtstbijzijnde DL-regio-centroid ──────────────────────────
+        # ── Find nearest DL region centroid ──────────────────────────
         best_dl_lbl  = None
         best_dl_dist = float("inf")
         for reg in self._dl_regions:
@@ -2863,7 +2863,7 @@ class CorrectionTab(QWidget):
                 best_dl_dist = dist
                 best_dl_lbl  = reg["label"]
 
-        # ── Zoek dichtstbijzijnde GT-regio-centroid ──────────────────────────
+        # ── Find nearest GT region centroid ──────────────────────────
         best_gt_lbl  = None
         best_gt_dist = float("inf")
         for reg in self._gt_regions:
@@ -2873,7 +2873,7 @@ class CorrectionTab(QWidget):
                 best_gt_dist = dist
                 best_gt_lbl  = reg["label"]
 
-        # ── Bepaal welke regio aangeklikt werd (DL of GT, kleinste afstand) ──
+        # ── Determine which region was clicked (DL or GT, smallest distance) ──
         result = getattr(self.dl_tab, "current_result", None)
         dl_label = result.label_image if result is not None else None
         if dl_label is not None and dl_label.shape != self.gt_mask.shape:
@@ -2887,40 +2887,40 @@ class CorrectionTab(QWidget):
         clicked_gt = best_gt_lbl is not None
 
         if clicked_dl and clicked_gt:
-            # Beide in de buurt: kies de dichtstbijzijnde
+            # Both nearby: choose the closest
             if best_gt_dist < best_dl_dist:
                 clicked_dl = False
             else:
                 clicked_gt = False
 
         if clicked_dl:
-            # Toggle DL-regio: rood ↔ groen
+            # Toggle DL region: red ↔ green
             self._region_status[best_dl_lbl] = not self._region_status[best_dl_lbl]
             self._draw(dl_label)
             self._update_counters()
             n_green = sum(1 for v in self._region_status.values() if v)
             n_red   = len(self._region_status) - n_green
-            status  = "goedgekeurd ✔" if self._region_status[best_dl_lbl] else "afgekeurd ✖"
+            status  = "approved ✔" if self._region_status[best_dl_lbl] else "rejected ✖"
             self.lbl_status.setText(
-                f"🖱  DL-regio {best_dl_lbl} → {status}  |  "
-                f"Groen: {n_green}  ·  Rood: {n_red}"
+                f"🖱  DL region {best_dl_lbl} → {status}  |  "
+                f"Green: {n_green}  ·  Red: {n_red}"
             )
 
         elif clicked_gt:
-            # Toggle GT-regio: actief (blauw) ↔ verwijderd
+            # Toggle GT region: active (blue) ↔ removed
             was_active = self._gt_region_status.get(best_gt_lbl, True)
             self._gt_region_status[best_gt_lbl] = not was_active
             self._draw(dl_label)
             self._update_counters()
             n_gt_removed = sum(1 for v in self._gt_region_status.values() if not v)
-            gt_status = "verwijderd ✖" if was_active else "hersteld ✔"
+            gt_status = "removed ✖" if was_active else "restored ✔"
             self.lbl_status.setText(
-                f"🖱  GT-regio {best_gt_lbl} → {gt_status}  |  "
-                f"GT verwijderd: {n_gt_removed} / {len(self._gt_region_status)}"
+                f"🖱  GT region {best_gt_lbl} → {gt_status}  |  "
+                f"GT removed: {n_gt_removed} / {len(self._gt_region_status)}"
             )
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Tellers bijwerken
+    # Update counters
     # ──────────────────────────────────────────────────────────────────────────
     def _update_counters(self):
         n_green = sum(1 for v in self._region_status.values() if v)
@@ -2935,20 +2935,20 @@ class CorrectionTab(QWidget):
         )
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Reset alle correcties terug naar auto-classificatie
+    # Reset all corrections to auto-classification
     # ──────────────────────────────────────────────────────────────────────────
     def _reset_corrections(self):
-        # Herstel ook verwijderde GT-regio's
+        # Also restore removed GT regions
         for lbl_id in self._gt_region_status:
             self._gt_region_status[lbl_id] = True
         self._auto_classify_and_draw()
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Gecorrigeerd masker bouwen en sturen naar ValidationTab
+    # Build corrected mask and send to ValidationTab
     # ──────────────────────────────────────────────────────────────────────────
     def _send_to_validation(self):
         if self.gt_mask is None:
-            QMessageBox.warning(self, "Geen masker", "Laad eerst een GT-masker.")
+            QMessageBox.warning(self, "No mask", "Load a GT mask first.")
             return
 
         result = getattr(self.dl_tab, "current_result", None)
@@ -2956,7 +2956,7 @@ class CorrectionTab(QWidget):
 
         corrected = self.gt_mask.copy().astype(np.uint8)
 
-        # Verwijder GT-regio's die de gebruiker heeft uitgezet
+        # Remove GT regions that the user has disabled
         if self._gt_label_image is not None:
             for gt_lbl_id, active in self._gt_region_status.items():
                 if not active:
@@ -2970,7 +2970,7 @@ class CorrectionTab(QWidget):
                     order=0, anti_aliasing=False, preserve_range=True
                 ).astype(np.int32)
 
-            # Voeg goedgekeurde DL-regio's toe aan het gecorrigeerde masker
+            # Add approved DL regions to the corrected mask
             for lbl_id, approved in self._region_status.items():
                 if approved:
                     corrected[dl_label == lbl_id] = 1
@@ -2979,29 +2979,29 @@ class CorrectionTab(QWidget):
         n_gt_removed = sum(1 for v in self._gt_region_status.values() if not v)
         n_added = int(corrected.sum()) - int(self.gt_mask.sum())
         QMessageBox.information(
-            self, "Verstuurd",
-            f"Gecorrigeerd masker verstuurd naar Validatie.\n"
-            f"Originele GT: {int(self.gt_mask.sum()):,} px\n"
-            f"GT-regio's verwijderd: {n_gt_removed}\n"
-            f"Gecorrigeerd: {int(corrected.sum()):,} px\n"
-            f"Netto verschil: {n_added:+,} px"
+            self, "Sent",
+            f"Corrected mask sent to Validation.\n"
+            f"Original GT: {int(self.gt_mask.sum()):,} px\n"
+            f"GT regions removed: {n_gt_removed}\n"
+            f"Corrected: {int(corrected.sum()):,} px\n"
+            f"Net difference: {n_added:+,} px"
         )
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Gecorrigeerd masker opslaan als TIFF
+    # Save corrected mask as TIFF
     # ──────────────────────────────────────────────────────────────────────────
     def _save_corrected_mask(self):
         if self.gt_mask is None:
-            QMessageBox.warning(self, "Geen masker", "Laad eerst een GT-masker.")
+            QMessageBox.warning(self, "No mask", "Load a GT mask first.")
             return
 
         result = getattr(self.dl_tab, "current_result", None)
         dl_label = result.label_image if result is not None else None
 
-        # Bouw gecorrigeerd masker op (zelfde logica als _send_to_validation)
+        # Build corrected mask (same logic as _send_to_validation)
         corrected = self.gt_mask.copy().astype(np.uint8)
 
-        # Verwijder GT-regio's die de gebruiker heeft uitgezet
+        # Remove GT regions that the user has disabled
         if self._gt_label_image is not None:
             for gt_lbl_id, active in self._gt_region_status.items():
                 if not active:
@@ -3019,39 +3019,39 @@ class CorrectionTab(QWidget):
                     corrected[dl_label == lbl_id] = 1
 
         path, _ = QFileDialog.getSaveFileName(
-            self, "Sla gecorrigeerd masker op",
-            "gecorrigeerd_masker.tif",
+            self, "Save corrected mask",
+            "corrected_mask.tif",
             "TIFF (*.tif *.tiff);;PNG (*.png)"
         )
         if not path:
             return
 
-        # Sla op als binair masker (0/255) zodat het universeel leesbaar is
+        # Save as binary mask (0/255) for universal readability
         tifffile.imwrite(path, (corrected * 255).astype(np.uint8))
 
         n_pos = int(corrected.sum())
         QMessageBox.information(
-            self, "Opgeslagen",
-            f"Gecorrigeerd masker opgeslagen:\n{path}\n\n"
-            f"Foreground-pixels: {n_pos:,}\n"
-            f"Afmetingen: {corrected.shape[1]} × {corrected.shape[0]} px"
+            self, "Saved",
+            f"Corrected mask saved:\n{path}\n\n"
+            f"Foreground pixels: {n_pos:,}\n"
+            f"Dimensions: {corrected.shape[1]} × {corrected.shape[0]} px"
         )
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Slot: wanneer DL-tab een nieuw resultaat heeft
+    # Slot: when DL tab has a new result
     # ──────────────────────────────────────────────────────────────────────────
     def _on_dl_updated(self, result):
         if self.gt_mask is not None:
             self._auto_classify_and_draw()
         self.lbl_status.setText(
-            f"ℹ️  Nieuw DL-resultaat: {result.method_name} "
-            f"({result.n_objects} objecten). "
-            "Weergave automatisch bijgewerkt."
+            f"ℹ️  New DL result: {result.method_name} "
+            f"({result.n_objects} objects). "
+            "Display automatically updated."
         )
 
 
 class DoubleCanvas(FigureCanvas):
-    """Matplotlib canvas met 2 subplots: [Ground Truth | Tab 4]."""
+    """Matplotlib canvas with 2 subplots: [Ground Truth | Tab 4]."""
 
     OUTER_BG = "#161b22"
     INNER_BG = "#0d1117"
@@ -3097,7 +3097,7 @@ class DoubleCanvas(FigureCanvas):
         gt_rgb[gt_mask.astype(bool)] = [0, 200, 80]
 
         overlays   = [gt_rgb, _mask_rgb(dl_mask, gt_mask)]
-        subtitles  = ["Ground Truth", "TP=groen  FP=rood  FN=blauw"]
+        subtitles  = ["Ground Truth", "TP=green  FP=red  FN=blue"]
 
         for ax, overlay, title, sub in zip(axes, overlays, self.TITLES, subtitles):
             self._style_ax(ax, title)
@@ -3105,7 +3105,7 @@ class DoubleCanvas(FigureCanvas):
                 ax.imshow(overlay, aspect="equal", interpolation="nearest")
                 ax.set_xlabel(sub, color="#8b949e", fontsize=8)
             else:
-                ax.text(0.5, 0.5, "Nog niet\ngesegmenteerd",
+                ax.text(0.5, 0.5, "Not yet\nsegmented",
                         ha="center", va="center",
                         color="#484f58", fontsize=11,
                         transform=ax.transAxes)
@@ -3161,42 +3161,42 @@ class ValidationTab(QWidget):
         root.setSpacing(10)
         root.setContentsMargins(10, 10, 10, 10)
 
-        grp_actions = QGroupBox("⚙️  Acties")
+        grp_actions = QGroupBox("⚙️  Actions")
         av = QHBoxLayout(grp_actions)
         av.setSpacing(8)
 
-        self.btn_load_gt = QPushButton("📂  Laad Ground-Truth Masker")
+        self.btn_load_gt = QPushButton("📂  Load Ground-Truth Mask")
         self.btn_load_gt.setObjectName("primary")
         self.btn_load_gt.setToolTip(
-            "Laad een handmatig geannoteerd ground-truth masker (TIFF-bestand).\n\n"
-            "Dit masker wordt gebruikt als referentie voor de validatie.\n"
-            "Wit (255) = aggregaat aanwezig, Zwart (0) = geen aggregaat.\n\n"
-            "Tip: het gecorrigeerde masker uit Tab 5 wordt automatisch ingeladen\n"
-            "als je dat masker doorstuurt via de Corrigeer-tab."
+            "Load a manually annotated ground-truth mask (TIFF file).\n\n"
+            "This mask is used as reference for validation.\n"
+            "White (255) = aggregate present, Black (0) = no aggregate.\n\n"
+            "Tip: the corrected mask from Tab 5 is automatically loaded\n"
+            "when you send it via the Correction tab."
         )
         self.btn_load_gt.clicked.connect(self._load_gt_mask)
         av.addWidget(self.btn_load_gt)
 
-        self.btn_compare = QPushButton("📊  Vergelijk Resultaat")
+        self.btn_compare = QPushButton("📊  Compare Result")
         self.btn_compare.setEnabled(False)
         self.btn_compare.setToolTip(
-            "Berekent validatiemetrieken door het DL-segmentatieresultaat\n"
-            "te vergelijken met het geladen ground-truth masker.\n\n"
-            "Berekende metrieken:\n"
-            "  • F1/Dice  — harmonisch gemiddelde van precisie en recall\n"
-            "  • IoU      — overlap gedeeld door de unie (Jaccard-index)\n"
-            "  • Precisie — fractie van detecties die correct is\n"
-            "  • Recall   — fractie van echte aggregaten die gevonden is\n"
-            "  • TP/FP/FN — terecht positief / fout-positief / fout-negatief (pixels)"
+            "Calculates validation metrics by comparing the DL segmentation result\n"
+            "with the loaded ground-truth mask.\n\n"
+            "Calculated metrics:\n"
+            "  • F1/Dice  — harmonic mean of precision and recall\n"
+            "  • IoU      — intersection over union (Jaccard index)\n"
+            "  • Precision — fraction of detections that are correct\n"
+            "  • Recall   — fraction of true aggregates that were found\n"
+            "  • TP/FP/FN — true positive / false positive / false negative (pixels)"
         )
         self.btn_compare.clicked.connect(self._run_comparison)
         av.addWidget(self.btn_compare)
 
-        self.btn_export = QPushButton("💾  Exporteer Rapport (CSV)")
+        self.btn_export = QPushButton("💾  Export Report (CSV)")
         self.btn_export.setEnabled(False)
         self.btn_export.setToolTip(
-            "Exporteert de validatiemetrieken naar een CSV-bestand.\n"
-            "Handig voor het bijhouden van resultaten over meerdere beelden of runs."
+            "Exports the validation metrics to a CSV file.\n"
+            "Useful for tracking results across multiple images or runs."
         )
         self.btn_export.clicked.connect(self._export_csv)
         av.addWidget(self.btn_export)
@@ -3204,7 +3204,7 @@ class ValidationTab(QWidget):
         av.addStretch()
         root.addWidget(grp_actions)
 
-        self.lbl_status = QLabel("Stap 1: Laad een ground-truth masker om te starten.")
+        self.lbl_status = QLabel("Step 1: Load a ground-truth mask to get started.")
         self.lbl_status.setStyleSheet(
             "color: #8b949e; font-size: 11px; padding: 4px 8px;"
             "background: #161b22; border-radius: 4px; border: 1px solid #21262d;"
@@ -3212,11 +3212,11 @@ class ValidationTab(QWidget):
         self.lbl_status.setWordWrap(True)
         root.addWidget(self.lbl_status)
 
-        grp_metrics = QGroupBox("📈  Validatiemetrieken")
+        grp_metrics = QGroupBox("📈  Validation Metrics")
         mv = QVBoxLayout(grp_metrics)
 
         self.tbl_metrics = QTableWidget(6, 2)
-        self.tbl_metrics.setHorizontalHeaderLabels(["Metriek", "Deep Learning (Ensemble)"])
+        self.tbl_metrics.setHorizontalHeaderLabels(["Metric", "Deep Learning (Ensemble)"])
         self.tbl_metrics.verticalHeader().setVisible(False)
         self.tbl_metrics.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.tbl_metrics.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
@@ -3227,7 +3227,7 @@ class ValidationTab(QWidget):
         mv.addWidget(self.tbl_metrics)
         root.addWidget(grp_metrics)
 
-        grp_visual = QGroupBox("🖼️  Visuele Vergelijking  —  Ground Truth | Deep Learning")
+        grp_visual = QGroupBox("🖼️  Visual Comparison  —  Ground Truth | Deep Learning")
         vv = QVBoxLayout(grp_visual)
 
         self.canvas = DoubleCanvas()
@@ -3261,7 +3261,7 @@ class ValidationTab(QWidget):
         rows = [
             ("F1-score (Dice)",  "—"),
             ("IoU (Jaccard)",    "—"),
-            ("Precisie",         "—"),
+            ("Precision",        "—"),
             ("Recall",           "—"),
             ("True Positives",   "—"),
             ("False Positives",  "—"),
@@ -3304,21 +3304,21 @@ class ValidationTab(QWidget):
 
     def _load_gt_mask(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "Laad Ground-Truth Masker", "",
-            "Masker-bestanden (*.tif *.tiff *.png);;Alle bestanden (*)"
+            self, "Load Ground-Truth Mask", "",
+            "Mask files (*.tif *.tiff *.png);;All files (*)"
         )
         if not path:
             return
         try:
             mask = _load_gt_mask_from_file(path)
         except Exception as e:
-            QMessageBox.critical(self, "Fout bij laden", f"Kan masker niet laden:\n{e}")
+            QMessageBox.critical(self, "Error loading", f"Kan masker niet laden:\n{e}")
             return
 
         if mask.sum() == 0:
             QMessageBox.warning(
-                self, "Leeg masker",
-                "Het geladen masker bevat geen foreground-pixels."
+                self, "Empty mask",
+                "The loaded mask contains no foreground pixels."
             )
             return
 
@@ -3327,9 +3327,9 @@ class ValidationTab(QWidget):
         n_pos = int(mask.sum())
         pct   = 100.0 * n_pos / mask.size
         self.lbl_status.setText(
-            f"✅  GT geladen: {Path(path).name}  |  Vorm: {mask.shape}  |  "
+            f"✅  GT loaded: {Path(path).name}  |  Shape: {mask.shape}  |  "
             f"Foreground: {n_pos:,} px ({pct:.1f}%)  |  "
-            "Klik 'Vernieuw' om DL-detecties te laden."
+            "Click 'Refresh' to load DL detections."
         )
         self.lbl_status.setStyleSheet(
             "color:#3fb950; font-size:11px; padding:4px 8px;"
@@ -3340,8 +3340,8 @@ class ValidationTab(QWidget):
         self._auto_classify_and_draw()
 
         self.lbl_status.setText(
-            f"✅  Ground-truth geladen: {Path(path).name}  |  "
-            f"Vorm: {mask.shape}  |  Foreground: {n_pos:,} px ({pct:.1f}%)"
+            f"✅  Ground-truth loaded: {Path(path).name}  |  "
+            f"Shape: {mask.shape}  |  Foreground: {n_pos:,} px ({pct:.1f}%)"
         )
         self.lbl_status.setStyleSheet(
             "color: #3fb950; font-size: 11px; padding: 4px 8px;"
@@ -3351,15 +3351,15 @@ class ValidationTab(QWidget):
 
     def _run_comparison(self):
         if self.gt_mask is None:
-            QMessageBox.warning(self, "Geen ground-truth", "Laad eerst een ground-truth masker.")
+            QMessageBox.warning(self, "No ground truth", "Load a ground-truth mask first.")
             return
 
         dl_mask  = _result_to_binary_mask(getattr(self.dl_tab, "current_result", None))
 
         if dl_mask is None:
             QMessageBox.warning(
-                self, "Geen segmentatie",
-                "Voer eerst segmentatie uit in Tab 4 (Deep Learning)."
+                self, "No segmentation",
+                "Run segmentation in Tab 4 (Deep Learning) first."
             )
             return
 
@@ -3391,7 +3391,7 @@ class ValidationTab(QWidget):
         rows = [
             ("F1-score (Dice)",  _v(m_dl, "f1")),
             ("IoU (Jaccard)",    _v(m_dl, "iou")),
-            ("Precisie",         _v(m_dl, "precision")),
+            ("Precision",         _v(m_dl, "precision")),
             ("Recall",           _v(m_dl, "recall")),
             ("True Positives",   _v(m_dl, "tp")),
             ("False Positives",  _v(m_dl, "fp")),
@@ -3401,11 +3401,11 @@ class ValidationTab(QWidget):
 
         f1_dl  = m_dl.get("f1")
         if f1_dl is not None:
-            verdict = f"Vergelijking succesvol — F1 = {f1_dl:.4f}."
+            verdict = f"Comparison successful — F1 = {f1_dl:.4f}."
         else:
-            verdict = "Geen geldige metrieken beschikbaar."
+            verdict = "No valid metrics available."
 
-        self.lbl_status.setText(f"📊  Vergelijking voltooid  |  {verdict}")
+        self.lbl_status.setText(f"📊  Comparison complete  |  {verdict}")
         self.lbl_status.setStyleSheet(
             "color: #79c0ff; font-size: 11px; padding: 4px 8px;"
             "background: #0d1b2b; border-radius: 4px; border: 1px solid #1f6feb;"
@@ -3417,19 +3417,19 @@ class ValidationTab(QWidget):
         if self._last_metrics is None:
             return
         path, _ = QFileDialog.getSaveFileName(
-            self, "Exporteer validatierapport", "validatie_rapport.csv",
-            "CSV-bestanden (*.csv)"
+            self, "Export validation report", "validation_report.csv",
+            "CSV files (*.csv)"
         )
         if not path:
             return
         keys   = ["f1", "iou", "precision", "recall", "tp", "fp", "fn"]
-        labels = ["F1-score (Dice)", "IoU (Jaccard)", "Precisie", "Recall",
+        labels = ["F1-score (Dice)", "IoU (Jaccard)", "Precision", "Recall",
                   "True Positives", "False Positives", "False Negatives"]
         m_dl  = self._last_metrics["dl"]
         with open(path, "w", newline="", encoding="utf-8") as f:
             w = csv.writer(f)
-            w.writerow(["Metriek", "DeepLearning_Ensemble"])
-            w.writerow(["Ground-truth masker", self.gt_path])
+            w.writerow(["Metric", "DeepLearning_Ensemble"])
+            w.writerow(["Ground-truth mask", self.gt_path])
             w.writerow([])
             for key, label_txt in zip(keys, labels):
                 dv = m_dl.get(key)
@@ -3437,23 +3437,23 @@ class ValidationTab(QWidget):
                     label_txt,
                     f"{dv:.6f}" if isinstance(dv, float) else (str(dv) if dv is not None else "N/A"),
                 ])
-        QMessageBox.information(self, "Geëxporteerd", f"Rapport opgeslagen:\n{path}")
+        QMessageBox.information(self, "Exported", f"Rapport opgeslagen:\n{path}")
 
     def _on_dl_updated(self, result):
         self.lbl_status.setText(
-            f"ℹ️  Tab 4 bijgewerkt: {result.method_name} ({result.n_objects} objecten). "
-            "Klik 'Vergelijk Resultaat' om te valideren."
+            f"ℹ️  Tab 4 updated: {result.method_name} ({result.n_objects} objects). "
+            "Click 'Compare Result' to validate."
         )
 
     def receive_corrected_mask(self, corrected_mask: np.ndarray):
-        """Ontvangt het gecorrigeerde masker van de Corrigeer-tab."""
+        """Receives the corrected mask from the Correction tab."""
         self._corrected_mask = corrected_mask
         n_pos = int(corrected_mask.sum())
         pct   = 100.0 * n_pos / corrected_mask.size
         self.lbl_status.setText(
-            f"✅  Gecorrigeerd GT-masker ontvangen van Corrigeer-tab  |  "
-            f"Vorm: {corrected_mask.shape}  |  Foreground: {n_pos:,} px ({pct:.1f}%)  |  "
-            "Klik 'Vergelijk Resultaat' om te valideren."
+            f"✅  Corrected GT mask received from Correction tab  |  "
+            f"Shape: {corrected_mask.shape}  |  Foreground: {n_pos:,} px ({pct:.1f}%)  |  "
+            "Click 'Compare Result' to validate."
         )
         self.lbl_status.setStyleSheet(
             "color:#3fb950; font-size:11px; padding:4px 8px;"
@@ -3461,12 +3461,12 @@ class ValidationTab(QWidget):
         )
         # Gebruik het gecorrigeerde masker als gt_mask voor vergelijking
         self.gt_mask = corrected_mask
-        self.gt_path = "(gecorrigeerd via Corrigeer-tab)"
+        self.gt_path = "(corrected via Correction tab)"
         self.btn_compare.setEnabled(True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  HOOFDVENSTER
+#  MAIN WINDOW
 # ═══════════════════════════════════════════════════════════════════════════════
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -3487,10 +3487,10 @@ class MainWindow(QMainWindow):
 
     def _build_ui(self):
         self.status = QStatusBar()
-        self.status.showMessage("Klaar — Open een .LIF of .TIF bestand om te starten.")
+        self.status.showMessage("Ready — Open a .LIF or .TIF file to get started.")
         self.setStatusBar(self.status)
 
-        tb = QToolBar("Hoofd")
+        tb = QToolBar("Main")
         tb.setIconSize(QSize(20, 20))
         tb.setMovable(False)
         tb.setStyleSheet("background:#161b22; spacing: 4px; padding: 4px 8px; border-bottom: 1px solid #21262d;")
@@ -3498,9 +3498,9 @@ class MainWindow(QMainWindow):
 
         for label, slot, tip in [
             ("📂  Open",        self._open_file,      "Open .lif of .tif bestand"),
-            ("💾  Sla op",       self._save_result,    "Sla huidige segmentatie op"),
-            ("📊  Statistieken", self._show_stats_dialog, "Toon gedetailleerde statistieken"),
-            ("❓  Help",         self._show_help,      "Documentatie & tips"),
+            ("💾  Save",       self._save_result,    "Save current segmentation"),
+            ("📊  Statistics", self._show_stats_dialog, "Show detailed statistics"),
+            ("❓  Help",         self._show_help,      "Documentation & tips"),
         ]:
             act = QAction(label, self)
             act.setToolTip(tip)
@@ -3520,22 +3520,22 @@ class MainWindow(QMainWindow):
 
         self.tabs.addTab(self.viewer_tab,   "🔭  1. Viewer")
         self.tabs.addTab(self.prep_tab,     "🔧  2. Pre-processing")
-        self.tabs.addTab(self.cellpose_tab, "🔬  3. Cellichamen")
+        self.tabs.addTab(self.cellpose_tab, "🔬  3. Cell Bodies")
         self.tabs.addTab(self.dl_tab,       "🧠  4. Deep Learning")
-        self.tabs.addTab(self.corr_tab,     "✏️  5. Corrigeer")
-        self.tabs.addTab(self.val_tab,      "📊  6. Validatie")
+        self.tabs.addTab(self.corr_tab,     "✏️  5. Correct")
+        self.tabs.addTab(self.val_tab,      "📊  6. Validation")
 
     def _wire_signals(self):
         self.viewer_tab.stack_loaded.connect(
             lambda s: self.status.showMessage(
-                f"Geladen: {s.name}  |  Z={s.z_count}, C={s.channel_count}, "
+                f"Loaded: {s.name}  |  Z={s.z_count}, C={s.channel_count}, "
                 f"{s.height}×{s.width} px"
             )
         )
         self.dl_tab.result_ready.connect(
             lambda r: self.status.showMessage(
-                f"DL Segmentatie klaar: {r.method_name}  |  "
-                f"N={r.n_objects} objecten  |  {r.time_seconds:.2f}s"
+                f"DL Segmentation done: {r.method_name}  |  "
+                f"N={r.n_objects} objects  |  {r.time_seconds:.2f}s"
             )
         )
         self.dl_tab.result_ready.connect(self.val_tab._on_dl_updated)
@@ -3550,19 +3550,19 @@ class MainWindow(QMainWindow):
     def _save_result(self):
         result = self.dl_tab.current_result
         if result is None or result.label_image is None:
-            QMessageBox.warning(self, "Geen resultaat", "Voer eerst segmentatie uit in Tab 4.")
+            QMessageBox.warning(self, "No result", "Run segmentation in Tab 4 first.")
             return
         path, _ = QFileDialog.getSaveFileName(
-            self, "Sla labelbeeld op", "", "TIFF (*.tif);;PNG (*.png)"
+            self, "Save label image", "", "TIFF (*.tif);;PNG (*.png)"
         )
         if path:
             tifffile.imwrite(path, result.label_image.astype(np.uint16))
-            QMessageBox.information(self, "Opgeslagen", f"Labelbeeld opgeslagen:\n{path}")
+            QMessageBox.information(self, "Saved", f"Labelbeeld opgeslagen:\n{path}")
 
     def _show_stats_dialog(self):
         result = self.dl_tab.current_result
         if result is None:
-            QMessageBox.information(self, "Geen resultaat", "Voer eerst segmentatie uit in Tab 4.")
+            QMessageBox.information(self, "No result", "Run segmentation in Tab 4 first.")
             return
         dlg = StatsDialog(result, self)
         dlg.exec_()
@@ -3580,7 +3580,7 @@ class MainWindow(QMainWindow):
               padding:22px 24px 18px 24px; margin-bottom:0;'>
     <p style='margin:0 0 4px 0; font-size:11px; color:#388bfd;
               letter-spacing:2px; text-transform:uppercase;'>
-      ✦ Handleiding
+      ✦ User Guide
     </p>
     <h1 style='margin:0 0 6px 0; font-size:22px; font-weight:700;
                color:#ffffff; letter-spacing:0.3px;'>
@@ -3597,7 +3597,7 @@ class MainWindow(QMainWindow):
     <h2 style='color:#79c0ff; font-size:15px; font-weight:700;
                margin:0 0 14px 0; border-bottom:1px solid #21262d;
                padding-bottom:8px;'>
-      ⚡ Aanbevolen werkstroom
+      ⚡ Recommended workflow
     </h2>
 
     <!-- Stap 1 -->
@@ -3618,8 +3618,8 @@ class MainWindow(QMainWindow):
               🔭 Viewer
             </span><br/>
             <span style='color:#c9d1d9; font-size:12px;'>
-              Laad hier een <b>.LIF</b> of <b>.TIF</b> bestand in en maak een
-              selectie van de beelden die je wilt gebruiken voor de pre-processing.
+              Load a <b>.LIF</b> or <b>.TIF</b> file here and select
+              the images you want to use for pre-processing.
             </span>
           </div>
         </td>
@@ -3644,11 +3644,11 @@ class MainWindow(QMainWindow):
               🔧 Pre-processing
             </span><br/>
             <span style='color:#c9d1d9; font-size:12px;'>
-              Klik hier op de
+              Click the
               <span style='background:#21262d; color:#f0f6fc;
                            border-radius:4px; padding:1px 6px;
-                           font-size:11px;'>★ Aanbevolen pipeline</span>
-              knop om de optimale beeldbewerking toe te passen.
+                           font-size:11px;'>★ Recommended pipeline</span>
+              button here to apply the optimal image processing.
             </span>
           </div>
         </td>
@@ -3670,11 +3670,11 @@ class MainWindow(QMainWindow):
                       border-left:3px solid #58a6ff; border-radius:0 8px 8px 0;
                       padding:10px 14px;'>
             <span style='color:#79c0ff; font-weight:700; font-size:13px;'>
-              🔬 Cellichamen
+              🔬 Cell Bodies
             </span><br/>
             <span style='color:#c9d1d9; font-size:12px;'>
-              Om de achtergrond te verwijderen kun je hier de cellichamen
-              automatisch laten selecteren via <b>Cellpose</b>.
+              To remove the background you can have the cell bodies
+              automatically selected here via <b>Cellpose</b>.
             </span>
           </div>
         </td>
@@ -3699,11 +3699,11 @@ class MainWindow(QMainWindow):
               🧠 Deep Learning
             </span><br/>
             <span style='color:#c9d1d9; font-size:12px;'>
-              Voer hier de aggregaat-segmentatie uit door de map met
-              <b>Deep Learning modellen</b> in te laden
+              Run aggregate segmentation here by loading the folder with
+              <b>Deep Learning models</b>
               (<code style='background:#0d1117; padding:1px 5px;
                             border-radius:3px; font-size:11px;'>model_fold*.pth</code>)
-              en de ensemble predictie te starten.
+              and starting the ensemble prediction.
             </span>
           </div>
         </td>
@@ -3725,14 +3725,14 @@ class MainWindow(QMainWindow):
                       border-left:3px solid #56d364; border-radius:0 8px 8px 0;
                       padding:10px 14px;'>
             <span style='color:#79c0ff; font-weight:700; font-size:13px;'>
-              ✏️ Corrigeer
+              ✏️ Correct
             </span><br/>
             <span style='color:#c9d1d9; font-size:12px;'>
-              Laad hier je handmatige <b>ground-truth masker</b>. De DL-detecties
-              worden automatisch <b style='color:#00c850'>groen</b> (overlapt GT)
-              of <b style='color:#e03030'>rood</b> (overlapt GT niet) gekleurd.
-              Klik op een rode regio om hem alsnog goed te keuren.
-              Stuur het gecorrigeerde masker daarna door naar Validatie.
+              Load your manual <b>ground-truth mask</b> here. DL detections
+              are automatically coloured <b style='color:#00c850'>green</b> (overlaps GT)
+              or <b style='color:#e03030'>red</b> (does not overlap GT).
+              Click on a red region to approve it.
+              Then send the corrected mask to Validation.
             </span>
           </div>
         </td>
@@ -3754,12 +3754,12 @@ class MainWindow(QMainWindow):
                       border-left:3px solid #a5d6ff; border-radius:0 8px 8px 0;
                       padding:10px 14px;'>
             <span style='color:#79c0ff; font-weight:700; font-size:13px;'>
-              📊 Validatie
+              📊 Validation
             </span><br/>
             <span style='color:#c9d1d9; font-size:12px;'>
-              Vergelijk het DL-resultaat met het (gecorrigeerde) ground-truth masker
-              (F1/Dice, IoU, precisie &amp; recall). Het gecorrigeerde masker
-              vanuit Tab 5 wordt hier automatisch ingeladen.
+              Compare the DL result with the (corrected) ground-truth mask
+              (F1/Dice, IoU, precision &amp; recall). The corrected mask
+              from Tab 5 is automatically loaded here.
             </span>
           </div>
         </td>
@@ -3770,7 +3770,7 @@ class MainWindow(QMainWindow):
     <h2 style='color:#79c0ff; font-size:15px; font-weight:700;
                margin:0 0 12px 0; border-bottom:1px solid #21262d;
                padding-bottom:8px;'>
-      💡 Handige tips
+      💡 Useful tips
     </h2>
 
     <table width='100%' cellspacing='6' cellpadding='0'
@@ -3780,10 +3780,10 @@ class MainWindow(QMainWindow):
           <div style='background:#161b22; border:1px solid #21262d;
                       border-radius:8px; padding:12px 14px; height:100%;'>
             <p style='margin:0 0 5px 0; color:#f0c040; font-weight:700;
-                      font-size:12px;'>⚠ Te veel detecties?</p>
+                      font-size:12px;'>⚠ Too many detections?</p>
             <p style='margin:0; color:#8b949e; font-size:11px; line-height:1.5;'>
-              Verhoog de threshold of vergroot het minimale oppervlak
-              (px²) in de post-processing instellingen.
+              Increase the threshold or enlarge the minimum area
+              (px²) in the post-processing settings.
             </p>
           </div>
         </td>
@@ -3792,10 +3792,10 @@ class MainWindow(QMainWindow):
           <div style='background:#161b22; border:1px solid #21262d;
                       border-radius:8px; padding:12px 14px; height:100%;'>
             <p style='margin:0 0 5px 0; color:#f0c040; font-weight:700;
-                      font-size:12px;'>⚠ Trage segmentatie?</p>
+                      font-size:12px;'>⚠ Slow segmentation?</p>
             <p style='margin:0; color:#8b949e; font-size:11px; line-height:1.5;'>
-              Schakel TTA uit voor snellere resultaten, of stel Device
-              in op <i>cuda</i> als je een NVIDIA GPU hebt.
+              Disable TTA for faster results, or set Device
+              to <i>cuda</i> if you have an NVIDIA GPU.
             </p>
           </div>
         </td>
@@ -3806,9 +3806,9 @@ class MainWindow(QMainWindow):
           <div style='background:#161b22; border:1px solid #21262d;
                       border-radius:8px; padding:12px 14px; height:100%;'>
             <p style='margin:0 0 5px 0; color:#f0c040; font-weight:700;
-                      font-size:12px;'>⚠ CUDA-fout?</p>
+                      font-size:12px;'>⚠ CUDA error?</p>
             <p style='margin:0; color:#8b949e; font-size:11px; line-height:1.5;'>
-              Stel Device in op <i>cpu</i> in Tab 4 om de GPU te omzeilen.
+              Set Device to <i>cpu</i> in Tab 4 to bypass the GPU.
             </p>
           </div>
         </td>
@@ -3817,12 +3817,12 @@ class MainWindow(QMainWindow):
           <div style='background:#161b22; border:1px solid #21262d;
                       border-radius:8px; padding:12px 14px; height:100%;'>
             <p style='margin:0 0 5px 0; color:#f0c040; font-weight:700;
-                      font-size:12px;'>⚠ Geen modellen gevonden?</p>
+                      font-size:12px;'>⚠ No models found?</p>
             <p style='margin:0; color:#8b949e; font-size:11px; line-height:1.5;'>
-              Controleer of de bestandsnamen de vorm
+              Check that the file names follow the pattern
               <code style='background:#0d1117; padding:1px 4px;
                             border-radius:3px;'>model_fold0.pth</code>
-              hebben en de juiste map is geselecteerd.
+              and that the correct folder is selected.
             </p>
           </div>
         </td>
@@ -3833,13 +3833,13 @@ class MainWindow(QMainWindow):
     <h2 style='color:#79c0ff; font-size:15px; font-weight:700;
                margin:0 0 10px 0; border-bottom:1px solid #21262d;
                padding-bottom:8px;'>
-      ⚙️ Benodigde pakketten
+      ⚙️ Required packages
     </h2>
     <div style='background:#161b22; border:1px solid #21262d;
                 border-radius:8px; padding:12px 16px; margin-bottom:8px;'>
       <p style='margin:0 0 4px 0; color:#58a6ff; font-size:11px;
                 font-weight:700; text-transform:uppercase;
-                letter-spacing:0.5px;'>Verplicht</p>
+                letter-spacing:0.5px;'>Required</p>
       <p style='margin:0; color:#8b949e; font-size:11px;'>
         PyQt5 &nbsp;·&nbsp; numpy &nbsp;·&nbsp; scipy &nbsp;·&nbsp;
         scikit-image &nbsp;·&nbsp; matplotlib &nbsp;·&nbsp; tifffile
@@ -3865,7 +3865,7 @@ class MainWindow(QMainWindow):
                 border-radius:8px; padding:12px 16px; margin-bottom:6px;'>
       <p style='margin:0 0 4px 0; color:#58a6ff; font-size:11px;
                 font-weight:700; text-transform:uppercase;
-                letter-spacing:0.5px;'>.LIF bestanden (Leica)</p>
+                letter-spacing:0.5px;'>.LIF files (Leica)</p>
       <code style='color:#79c0ff; font-size:11px;'>pip install readlif</code>
     </div>
 
@@ -3902,7 +3902,7 @@ class MainWindow(QMainWindow):
 
     def _show_welcome(self):
         self.status.showMessage(
-            "Welkom! — Open een .LIF of .TIF bestand via 📂 Open."
+            "Welcome! — Open a .LIF or .TIF file using 📂 Open."
         )
 
 
