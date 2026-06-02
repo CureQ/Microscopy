@@ -1,0 +1,44 @@
+# CureQ Microscopy Analysis Suite — final_requirements.txt
+# Install with:  pip install -r final_requirements.txt
+#
+# After installing, install PyTorch separately (see section at the bottom).
+
+# ── GUI ──────────────────────────────────────────────────────────────────────
+PyQt5>=5.15
+
+# ── Image I/O ─────────────────────────────────────────────────────────────────
+tifffile>=2023.1
+Pillow>=9.0
+aicsimageio>=4.11          # smart multi-format loader (CZI, LIF, ND2, TIFF)
+aicspylibczi               # CZI support for aicsimageio
+readlif>=0.6               # Leica .lif files
+
+# ── Scientific stack ──────────────────────────────────────────────────────────
+numpy>=1.24
+scipy>=1.10
+scikit-image>=0.21
+pandas>=2.0
+
+# ── Plotting ──────────────────────────────────────────────────────────────────
+matplotlib>=3.7
+
+# ── Segmentation ──────────────────────────────────────────────────────────────
+cellpose>=4.0              # cell & nucleus segmentation (requires PyTorch)
+
+# ── Aggregate detection (deep-learning ensemble) ──────────────────────────────
+segmentation-models-pytorch>=0.5   # U-Net encoder/decoder models
+
+# ── PyTorch ───────────────────────────────────────────────────────────────────
+# cellpose and segmentation-models-pytorch both require PyTorch.
+# Install the version that matches your hardware:
+#
+#   CPU only (simplest, no GPU needed):
+#     pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#
+#   Apple Silicon (MPS — recommended on Mac):
+#     pip install torch torchvision
+#
+#   NVIDIA GPU (CUDA 12.1 example):
+#     pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+#
+#   Other CUDA versions: see https://pytorch.org/get-started/locally/
