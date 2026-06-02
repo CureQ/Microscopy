@@ -7912,11 +7912,16 @@ class CellRegionAnalysisTab(QWidget):
         self._nav.setStyleSheet(_viewer_tb_qss())
         # Mouse-hover handler: shows the cell ID + per-cell stats under the cursor
         self._canvas.mpl_connect("motion_notify_event", self._on_hover)
+        # Left-click opens CellDetailDialog for the clicked cell
+        self._canvas.mpl_connect("button_press_event", self._on_cell_detail_click)
         # Initialised by _refresh_overlay / _populate_cell_stats
-        self._cell_labeled      = None
-        self._cell_stats_rows   = {}
-        self._selected_agg_id   = None   # aggregate highlighted by table click
-        self._agg_labeled_cache = None   # agg_labeled array for highlight
+        self._cell_labeled          = None
+        self._cell_stats_rows       = {}
+        self._selected_agg_id       = None
+        self._agg_labeled_cache     = None
+        self._per_cell_rc_cache     = None
+        self._per_cell_ra_cache     = None
+        self._agg_assignments_cache = None
         cl.addWidget(self._nav); cl.addWidget(self._canvas, stretch=1)
         # ── Right panel: tabbed tables + aggregate summary at bottom ──────────
         rw = QWidget()
@@ -7974,7 +7979,7 @@ class CellRegionAnalysisTab(QWidget):
                     self._display_ids, self._display_aggs):
             _cb.stateChanged.connect(self._refresh_overlay)
             disp_lyt.addWidget(_cb)
-        self._hover_lbl = QLabel("Hover a cell to see its stats.")
+        self._hover_lbl = QLabel("Hover a cell — click to open detailed view.")
         self._hover_lbl.setWordWrap(True)
         self._hover_lbl.setStyleSheet(
             "color:#ffd080;font-family:monospace;font-size:11px;"
@@ -8470,6 +8475,34 @@ class CellRegionAnalysisTab(QWidget):
             self._selected_agg_id = None
         self._refresh_overlay()
 
+    def _on_cell_detail_click(self, event):
+        """Left-click on the canvas: open CellDetailDialog for the clicked cell."""
+        if event.button != 1 or event.inaxes is None:
+            return
+        # Don't open dialog if the matplotlib toolbar is in zoom/pan mode
+        if (self._canvas.toolbar is not None
+                and getattr(self._canvas.toolbar, "mode", "") != ""):
+            return
+        if self._cell_labeled is None or event.xdata is None or event.ydata is None:
+            return
+        H, W = self._cell_labeled.shape
+        x = int(max(0, min(W - 1, event.xdata)))
+        y = int(max(0, min(H - 1, event.ydata)))
+        cid = int(self._cell_labeled[y, x])
+        if cid == 0:
+            return
+        dlg = CellDetailDialog(
+            cell_id          = cid,
+            state            = self._state,
+            cell_labeled     = self._cell_labeled,
+            agg_labeled      = self._agg_labeled_cache,
+            per_cell_rc      = getattr(self, "_per_cell_rc_cache",  None) or {},
+            per_cell_ra      = getattr(self, "_per_cell_ra_cache",  None) or {},
+            agg_assignments  = getattr(self, "_agg_assignments_cache", None) or {},
+            parent           = self,
+        )
+        dlg.exec_()
+
     def _measure_signal(self):
         """Compute % signal and object count per region for selected derived channel.
         Object count uses connected-component labelling of the signal channel"""
@@ -8744,8 +8777,11 @@ class CellRegionAnalysisTab(QWidget):
         self._export_csv_btn.setEnabled(len(all_cell_ids) > 0)
 
         # ── Per-aggregate table ──────────────────────────────────────────
-        self._agg_labeled_cache = agg_labeled   # cache for highlight overlay
-        self._selected_agg_id   = None          # clear any previous selection
+        self._agg_labeled_cache     = agg_labeled    # cache for highlight overlay
+        self._selected_agg_id       = None           # clear any previous selection
+        self._per_cell_rc_cache     = _per_cell_rc   # cache for CellDetailDialog
+        self._per_cell_ra_cache     = _per_cell_ra
+        self._agg_assignments_cache = _agg_assignments
         self._agg_stats_table.setSortingEnabled(False)
         self._agg_stats_table.setRowCount(len(agg_props))
         _reg_display = {"nucleus": "Nucleus", "perinuclear": "Perinuclear",
@@ -9101,6 +9137,224 @@ class ColocAnalysisWorker(BaseWorker):
                     sigma=self._sigma, min_size=self._min,
                     mc=self._mc, cc=self._cc,
                     mp=self._mp, cp=self._cp)
+
+class CellDetailDialog(QDialog):
+    """
+    Modal dialog opened when the user left-clicks a cell in Cell Region
+    Analysis.  Shows:
+      • Zoomed matplotlib view of the cell with region colour overlays
+        and every aggregate labelled with its ID.
+      • Per-region breakdown table (pixels, agg count, agg area).
+      • Per-aggregate table (ID, area px², region).
+      • Inclusion summary (nuclear / cytoplasmic).
+    """
+
+    # Region display colours (RGBA, same as main overlay)
+    _REG_FILL = {
+        "nucleus":     (0.25, 0.50, 1.00, 0.40),
+        "perinuclear": (1.00, 0.60, 0.00, 0.40),
+        "cytoplasm":   (0.20, 0.90, 0.20, 0.28),
+        "periphery":   (0.90, 0.20, 0.90, 0.40),
+    }
+    _TBL_SS = ("QTableWidget{background:#0a0a14;color:#c0c0e0;font-size:11px;}"
+               "QHeaderView::section{background:#14142a;color:#8080c0;"
+               "font-size:11px;padding:3px;}")
+
+    def __init__(self, cell_id, state, cell_labeled, agg_labeled,
+                 per_cell_rc, per_cell_ra, agg_assignments, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"Cell {cell_id}  —  Detailed Analysis")
+        self.resize(1050, 680)
+        self.setStyleSheet("background:#0a0a14;color:#c0c0e0;")
+
+        main_lyt = QHBoxLayout(self)
+        main_lyt.setSpacing(10)
+        main_lyt.setContentsMargins(8, 8, 8, 8)
+
+        # ── Zoomed cell figure ────────────────────────────────────────────
+        fig = Figure(figsize=(6, 5), facecolor="#0a0a14")
+        ax  = fig.add_subplot(111)
+        ax.set_facecolor("#0a0a14")
+
+        cell_mask = (cell_labeled == cell_id)
+        ys, xs = np.where(cell_mask)
+        if ys.size == 0:
+            ax.text(0.5, 0.5, "Cell pixels not found",
+                    transform=ax.transAxes, color="red",
+                    ha="center", va="center")
+        else:
+            H, W = cell_labeled.shape
+            pad  = max(20, int(max(ys.max()-ys.min(), xs.max()-xs.min()) * 0.15))
+            r0   = max(0, ys.min() - pad);  r1 = min(H, ys.max() + pad + 1)
+            c0   = max(0, xs.min() - pad);  c1 = min(W, xs.max() + pad + 1)
+
+            # Background: first channel, max-projected, normalised
+            img = (state.preprocessed_image if state.has_preprocessed()
+                   else state.raw_image)
+            if img is not None and img.ndim >= 4 and img.shape[1] > 0:
+                vol  = img[:, 0].astype(np.float32)
+                base = np.max(vol, axis=0)[r0:r1, c0:c1]
+                rng  = float(np.ptp(base))
+                if rng > 0:
+                    base = (base - base.min()) / rng
+                ax.imshow(base, cmap="gray", vmin=0, vmax=1,
+                          interpolation="nearest", origin="upper")
+
+            # Dim pixels outside this cell
+            cell_crop = cell_mask[r0:r1, c0:c1]
+            dim = np.zeros((*cell_crop.shape, 4), dtype=np.float32)
+            dim[~cell_crop] = (0.0, 0.0, 0.0, 0.55)   # dark vignette
+            ax.imshow(dim, interpolation="nearest", origin="upper")
+
+            # Region colour fills (only pixels belonging to this cell)
+            for reg, fc in CellDetailDialog._REG_FILL.items():
+                vol = state.get_derived_channel(f"region_{reg}")
+                if vol is None:
+                    continue
+                rm    = (vol[0] if vol.ndim == 3 else vol)
+                mask  = (rm[r0:r1, c0:c1] == cell_id)
+                if not mask.any():
+                    continue
+                rgba  = np.zeros((*mask.shape, 4), dtype=np.float32)
+                rgba[mask] = fc
+                ax.imshow(rgba, interpolation="nearest", origin="upper")
+
+            # Aggregate outlines + ID labels
+            if agg_labeled is not None:
+                from skimage.measure import regionprops as _rp_cd
+                from scipy.ndimage import binary_erosion as _be_cd
+                agg_crop = agg_labeled[r0:r1, c0:c1]
+                oa = np.zeros((*agg_crop.shape, 4), dtype=np.float32)
+                for prop in _rp_cd(agg_crop):
+                    owner = agg_assignments.get(prop.label, (0,))[0]
+                    if owner != cell_id:
+                        continue
+                    obj  = (agg_crop == prop.label)
+                    edge = obj & ~_be_cd(obj)
+                    oa[edge] = (1.0, 1.0, 0.0, 1.0)   # yellow outline
+                    cy, cx = prop.centroid
+                    ax.text(cx, cy, str(prop.label),
+                            color="white", fontsize=7, weight="bold",
+                            ha="center", va="center",
+                            bbox=dict(boxstyle="round,pad=0.15",
+                                      fc=(0.0, 0.0, 0.0, 0.55), ec="none"))
+                ax.imshow(oa, interpolation="nearest", origin="upper")
+
+        ax.set_title(f"Cell {cell_id}", color="#a0a0d0", fontsize=10, pad=3)
+        ax.axis("off")
+        fig.subplots_adjust(left=0.01, right=0.99, top=0.94, bottom=0.01)
+        canvas = FigureCanvas(fig)
+        canvas.setMinimumSize(420, 350)
+        main_lyt.addWidget(canvas, stretch=3)
+
+        # ── Right stats panel ──────────────────────────────────────────────
+        right_w = QWidget()
+        right_w.setStyleSheet("background:#0a0a14;")
+        rl = QVBoxLayout(right_w)
+        rl.setSpacing(6)
+
+        # Title
+        ttl = QLabel(f"<b>Cell {cell_id}</b>")
+        ttl.setStyleSheet("color:#c0c0ff;font-size:14px;padding-bottom:4px;")
+        rl.addWidget(ttl)
+
+        # Inclusion summary
+        rc = per_cell_rc.get(cell_id, {})
+        ra = per_cell_ra.get(cell_id, {})
+        regions = ["nucleus", "perinuclear", "cytoplasm", "periphery"]
+        total_agg  = sum(rc.get(r, 0) for r in regions)
+        total_area = sum(ra.get(r, 0) for r in regions)
+        nuc_inc    = rc.get("nucleus", 0) > 0
+        cyto_inc   = (rc.get("perinuclear", 0) + rc.get("cytoplasm", 0)) > 0
+        inc_lbl = QLabel(
+            f"Total aggregates : {total_agg}\n"
+            f"Total agg area   : {total_area} px²\n"
+            f"Nuclear inclusion: {'YES ✓' if nuc_inc  else 'no'}\n"
+            f"Cyto   inclusion : {'YES ✓' if cyto_inc else 'no'}")
+        inc_lbl.setStyleSheet(
+            "color:#80ff80;font-family:monospace;font-size:11px;"
+            "background:#0d0d1e;padding:6px;border:1px solid #2a2a4a;")
+        rl.addWidget(inc_lbl)
+
+        # Per-region breakdown
+        rl.addWidget(self._small_lbl("Region breakdown:"))
+        reg_rows = []
+        for r in regions:
+            vol = state.get_derived_channel(f"region_{r}")
+            if vol is not None:
+                rm2d = (vol[0] if vol.ndim == 3 else vol)
+                px   = int((rm2d == cell_id).sum())
+            else:
+                px   = 0
+            reg_rows.append([r.capitalize(), str(px),
+                              str(rc.get(r, 0)), str(ra.get(r, 0))])
+        reg_tbl2 = self._make_table(
+            ["Region", "Pixels", "Agg count", "Agg area px²"],
+            reg_rows,
+            highlight_col=2, highlight_thresh=1)
+        reg_tbl2.setMaximumHeight(145)
+        rl.addWidget(reg_tbl2)
+
+        # Per-aggregate list
+        rl.addWidget(self._small_lbl("Aggregates in this cell:"))
+        cell_aggs = sorted(
+            [(lbl, reg) for lbl, (c, reg) in agg_assignments.items()
+             if c == cell_id])
+        agg_areas = {}
+        if agg_labeled is not None:
+            from skimage.measure import regionprops as _rp_al
+            for _p in _rp_al(agg_labeled):
+                agg_areas[_p.label] = _p.area
+        agg_rows = [[str(lbl), str(agg_areas.get(lbl, 0)), reg.capitalize()]
+                    for lbl, reg in cell_aggs]
+        agg_tbl = self._make_table(
+            ["Agg ID", "Area px²", "Region"], agg_rows,
+            highlight_col=0)
+        agg_tbl.setSortingEnabled(True)
+        rl.addWidget(agg_tbl, stretch=1)
+
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        close_btn.setStyleSheet(
+            "background:#1e1e3a;color:#c0c0ff;border:1px solid #3a3a5a;"
+            "padding:6px 24px;border-radius:4px;font-size:12px;")
+        rl.addWidget(close_btn)
+        main_lyt.addWidget(right_w, stretch=2)
+
+    # ── helpers ──────────────────────────────────────────────────────────
+    @staticmethod
+    def _small_lbl(text):
+        lbl = QLabel(text)
+        lbl.setStyleSheet("color:#8080c0;font-size:11px;margin-top:3px;")
+        return lbl
+
+    @staticmethod
+    def _make_table(headers, rows, highlight_col=None, highlight_thresh=1):
+        tbl = QTableWidget()
+        tbl.setStyleSheet(
+            "QTableWidget{background:#0a0a14;color:#c0c0e0;font-size:11px;}"
+            "QHeaderView::section{background:#14142a;color:#8080c0;"
+            "font-size:11px;padding:3px;}")
+        tbl.setColumnCount(len(headers))
+        tbl.setHorizontalHeaderLabels(headers)
+        tbl.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        tbl.setAlternatingRowColors(True)
+        tbl.setRowCount(len(rows))
+        for ri, row in enumerate(rows):
+            for ci, val in enumerate(row):
+                it = QTableWidgetItem(val)
+                it.setFlags(it.flags() & ~Qt.ItemIsEditable)
+                if (highlight_col is not None and ci == highlight_col):
+                    try:
+                        if int(val) >= highlight_thresh:
+                            it.setForeground(
+                                __import__("PyQt5.QtGui",
+                                    fromlist=["QColor"]).QColor("#ffff80"))
+                    except (ValueError, TypeError):
+                        pass
+                tbl.setItem(ri, ci, it)
+        return tbl
+
 
 def save_coloc_pdf(r: dict) -> str:
     """Write a colocalization PDF report to disk from in-memory results dict.
