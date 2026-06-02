@@ -966,7 +966,7 @@ class ImageViewerTab(QWidget):
         root.setSpacing(4)
 
         ls, _, ll = make_scroll_widget()
-        ls.setFixedWidth(290)
+        ls.setMinimumWidth(160)
 
         fg = section("Load Image")
         fl = QVBoxLayout(fg)
@@ -1053,7 +1053,6 @@ class ImageViewerTab(QWidget):
         ll.addWidget(ig)
 
         ll.addStretch()
-        root.addWidget(ls)
 
         self._view_tabs = QTabWidget()
         self._view_tabs.setDocumentMode(True)
@@ -1126,7 +1125,13 @@ class ImageViewerTab(QWidget):
 
         self._view_tabs.addTab(cw_single, "Single Channel")
         self._view_tabs.addTab(cw_multi,  "Multi-Channel 🎨")
-        root.addWidget(self._view_tabs, stretch=1)
+        _iv_split = QSplitter(Qt.Horizontal)
+        _iv_split.addWidget(ls)
+        _iv_split.addWidget(self._view_tabs)
+        _iv_split.setStretchFactor(0, 0)
+        _iv_split.setStretchFactor(1, 1)
+        _iv_split.setSizes([290, 900])
+        root.addWidget(_iv_split)
 
         self._mc_ch_rows: list = []
 
@@ -1643,7 +1648,10 @@ class ImageViewerTab(QWidget):
             c_idx   = m["data_channel_index"]
             color   = m.get("color",   "gray")
             opacity = m.get("opacity", 1.0)
-            rgb     = _CMAP.get(color.lower(), (1.0, 1.0, 1.0))
+            _cmap   = {"red":(1,0,0),"green":(0,1,0),"blue":(0,0,1),"cyan":(0,1,1),
+                       "magenta":(1,0,1),"yellow":(1,1,0),"white":(1,1,1),
+                       "gray":(1,1,1),"orange":(1,.5,0)}
+            rgb     = _cmap.get(color.lower(), (1.0, 1.0, 1.0))
 
             plane = self._state.get_display_slice(channel=c_idx,
                                                   z=z_idx, projection=proj)
@@ -1884,7 +1892,7 @@ class PreprocessingTab(QWidget):
 
         # ── LEFT PANEL ────────────────────────────────────────────────────
         ls, _, ll = make_scroll_widget()
-        ls.setFixedWidth(300)
+        ls.setMinimumWidth(160)
 
         hdr_row = QHBoxLayout()
         hdr_row.addStretch()
@@ -1986,7 +1994,6 @@ class PreprocessingTab(QWidget):
             "dropdowns of the Cell Body & Nuclei Detection tab.")
         self._store_btn.clicked.connect(self._store_as_derived)
         store_lyt.addWidget(self._store_btn)
-        ll.addWidget(store_grp)
 
         # Pipeline steps (scrollable)
         pg = section("🔧 Preprocessing Steps")
@@ -2114,7 +2121,6 @@ class PreprocessingTab(QWidget):
         inner_w.setLayout(iv)
         inner_scroll.setWidget(inner_w)
         pgl.addWidget(inner_scroll)
-        ll.addWidget(pg)
 
 
         chan_sel_grp = section("📺 Channel to Preview & Process")
@@ -2135,7 +2141,11 @@ class PreprocessingTab(QWidget):
             "Then select Nucleus → apply Nucleus preset → store.")
         self._ch_combo_prep.currentIndexChanged.connect(self._on_channel_changed)
         chan_sel_lyt.addWidget(self._ch_combo_prep)
+        # Left-panel sections in workflow order:
+        # 1. Channel to Preview & Process
+        # 2. Preprocessing Steps
         ll.addWidget(chan_sel_grp)
+        ll.addWidget(pg)
 
         # Keep old spinbox hidden for internal compatibility
         self._prev_ch_spin = QSpinBox()
@@ -2159,8 +2169,8 @@ class PreprocessingTab(QWidget):
         self._stat_lbl = StatusLabel()
         ll.addWidget(self._prog)
         ll.addWidget(self._stat_lbl)
+        ll.addWidget(store_grp)   # Store as Derived Channel — below Apply/Reset
         ll.addStretch()
-        root.addWidget(ls)
 
         # ── RIGHT PANEL — dual canvas ────────────────────────────────────
         right_w   = QWidget()
@@ -2219,7 +2229,13 @@ class PreprocessingTab(QWidget):
         canvases_lyt.addWidget(orig_w,  stretch=1)
         canvases_lyt.addWidget(proc_w,  stretch=1)
         right_lyt.addWidget(canvases_w, stretch=1)
-        root.addWidget(right_w, stretch=1)
+        _prep_split = QSplitter(Qt.Horizontal)
+        _prep_split.addWidget(ls)
+        _prep_split.addWidget(right_w)
+        _prep_split.setStretchFactor(0, 0)   # left panel: fixed preferred
+        _prep_split.setStretchFactor(1, 1)   # canvases: take remaining space
+        _prep_split.setSizes([300, 900])      # default proportions
+        root.addWidget(_prep_split)
 
         # ── Connections ───────────────────────────────────────────────────
         self._run_btn.clicked.connect(self._run_preprocessing)
@@ -2557,7 +2573,7 @@ class ResultsTab(QWidget):
         root.setSpacing(4)
 
         ls, _, ll = make_scroll_widget()
-        ls.setFixedWidth(230)
+        ls.setMinimumWidth(160)
 
         sg = section("Tool Results")
         sg_hdr = QHBoxLayout(); sg_hdr.addStretch()
@@ -2584,14 +2600,19 @@ class ResultsTab(QWidget):
         self._summary_lbl.setPlaceholderText("Run a tool to see results here…")
         ll.addWidget(self._summary_lbl)
         ll.addStretch()
-        root.addWidget(ls)
 
         self._table = QTableWidget()
         self._table.setStyleSheet(
             "QTableWidget{background:#0a0a14;color:#c0c0e0;"
             "gridline-color:#1a1a30;}"
             "QHeaderView::section{background:#14142a;color:#8080c0;}")
-        root.addWidget(self._table, stretch=1)
+        _res_split = QSplitter(Qt.Horizontal)
+        _res_split.addWidget(ls)
+        _res_split.addWidget(self._table)
+        _res_split.setStretchFactor(0, 0)
+        _res_split.setStretchFactor(1, 1)
+        _res_split.setSizes([230, 900])
+        root.addWidget(_res_split)
 
         self._tool_combo.currentTextChanged.connect(self._show_tool_result)
         self._csv_btn.clicked.connect(self._export_csv)
@@ -3200,7 +3221,7 @@ class CellBodyTab(QWidget):
         root.setSpacing(4)
 
         ls, _, ll = make_scroll_widget()
-        ls.setFixedWidth(295)
+        ls.setMinimumWidth(160)
 
         cg = section("Input (from preprocessed image)")
         cg_hdr = QHBoxLayout()
@@ -3343,7 +3364,6 @@ class CellBodyTab(QWidget):
         ll.addWidget(self._prog)
         ll.addWidget(self._stat_lbl)
         ll.addStretch()
-        root.addWidget(ls)
 
         cw = QWidget(); cl = QVBoxLayout(cw); cl.setContentsMargins(0,0,0,0)
         self._canvas = ImageCanvas(figsize=(7,6))
@@ -3351,9 +3371,7 @@ class CellBodyTab(QWidget):
         self._nav.setStyleSheet(_viewer_tb_qss())
         cl.addWidget(self._nav)
         cl.addWidget(self._canvas, stretch=1)
-        root.addWidget(cw, stretch=1)
-
-        rw = QWidget(); rw.setFixedWidth(235); rl = QVBoxLayout(rw)
+        rw = QWidget(); rl = QVBoxLayout(rw)
         sg2 = section("Statistics"); sl2 = QVBoxLayout(sg2)
         self._stats_lbl = QLabel("")
         self._stats_lbl.setWordWrap(True)
@@ -3367,7 +3385,15 @@ class CellBodyTab(QWidget):
             b.setEnabled(False); el.addWidget(b)
         rl.addWidget(eg)
         rl.addStretch()
-        root.addWidget(rw)
+        _cb_split = QSplitter(Qt.Horizontal)
+        _cb_split.addWidget(ls)
+        _cb_split.addWidget(cw)
+        _cb_split.addWidget(rw)
+        _cb_split.setStretchFactor(0, 0)
+        _cb_split.setStretchFactor(1, 1)
+        _cb_split.setStretchFactor(2, 0)
+        _cb_split.setSizes([295, 700, 235])
+        root.addWidget(_cb_split)
 
         self._seg_btn.clicked.connect(self._run_seg)
         self._auto_param_btn.clicked.connect(self._run_auto_params)
@@ -4360,7 +4386,7 @@ class CellBodyNucleiTab(QWidget):
         root.setSpacing(4)
 
         ls, _, ll = make_scroll_widget()
-        ls.setFixedWidth(310)
+        ls.setMinimumWidth(160)
 
         # Help button (top of left panel)
         _help_row = QHBoxLayout()
@@ -4769,8 +4795,8 @@ class CellBodyNucleiTab(QWidget):
             comb_lyt.addWidget(w)
         comb_lyt.addLayout(comb_nuc_bc_row)
 
-        self._combine_btn = QPushButton("🔀  Refresh Combined Overlay")
-        self._combine_btn.setStyleSheet(BTN_PURPLE)
+        self._combine_btn = QPushButton("▶  Run Combined Overlay")
+        self._combine_btn.setStyleSheet(BTN_RUN)
         self._combine_btn.setEnabled(False)
         self._combine_btn.setToolTip(
             "Render the Combined overlay using the settings above.\n\n"
@@ -4786,7 +4812,6 @@ class CellBodyNucleiTab(QWidget):
         ll.addWidget(self._prog)
         ll.addWidget(self._stat_lbl)
         ll.addStretch()
-        root.addWidget(ls)
 
         self._view_tabs = QTabWidget()
         self._view_tabs.setDocumentMode(True)
@@ -4821,10 +4846,7 @@ class CellBodyNucleiTab(QWidget):
         self._view_tabs.addTab(cell_w,  "Cell Bodies")
         self._view_tabs.addTab(nuc_w,   "Nuclei")
         self._view_tabs.addTab(comb_w,  "Combined 🔀")
-        root.addWidget(self._view_tabs, stretch=1)
-
         rw = QWidget()
-        rw.setFixedWidth(240)
         rl = QVBoxLayout(rw)
 
         cell_stat_grp = section("Cell Body Stats")
@@ -4890,7 +4912,15 @@ class CellBodyNucleiTab(QWidget):
             exp_lyt.addWidget(b)
         rl.addWidget(exp_grp)
         rl.addStretch()
-        root.addWidget(rw)
+        _cn_split = QSplitter(Qt.Horizontal)
+        _cn_split.addWidget(ls)
+        _cn_split.addWidget(self._view_tabs)
+        _cn_split.addWidget(rw)
+        _cn_split.setStretchFactor(0, 0)
+        _cn_split.setStretchFactor(1, 1)
+        _cn_split.setStretchFactor(2, 0)
+        _cn_split.setSizes([340, 700, 240])
+        root.addWidget(_cn_split)
 
         self._cell_run_btn.clicked.connect(self._run_cell_seg)
         self._nuc_run_btn.clicked.connect(self._run_nuc_seg)
@@ -6398,7 +6428,7 @@ class DLAggregateSubTab(QWidget):
         main.setContentsMargins(4, 4, 4, 4)
 
         ls, _, lv = make_scroll_widget()
-        ls.setFixedWidth(360)
+        ls.setMinimumWidth(160)
 
         # Warnings
         if not HAS_TORCH:
@@ -6555,7 +6585,6 @@ class DLAggregateSubTab(QWidget):
         lv.addWidget(btn_csv)
         lv.addWidget(btn_img)
         lv.addStretch()
-        main.addWidget(ls)
 
         # Canvas area
         right_w = QWidget()
@@ -6567,7 +6596,13 @@ class DLAggregateSubTab(QWidget):
         nav.setStyleSheet(_viewer_tb_qss())
         rv.addWidget(nav)
         rv.addWidget(self.canvas, stretch=1)
-        main.addWidget(right_w, stretch=1)
+        _agg_split = QSplitter(Qt.Horizontal)
+        _agg_split.addWidget(ls)
+        _agg_split.addWidget(right_w)
+        _agg_split.setStretchFactor(0, 0)
+        _agg_split.setStretchFactor(1, 1)
+        _agg_split.setSizes([360, 900])
+        main.addWidget(_agg_split)
 
     # ── Slots ─────────────────────────────────────────────────────────────────
     def _load_model_dir(self):
@@ -7724,7 +7759,7 @@ class CellRegionAnalysisTab(QWidget):
         root.setSpacing(4)
 
         ls, _, ll = make_scroll_widget()
-        ls.setFixedWidth(310)
+        ls.setMinimumWidth(160)
 
         # ── Source masks ──────────────────────────────────────────────────
         src_grp = section("Source Masks")
@@ -7869,7 +7904,6 @@ class CellRegionAnalysisTab(QWidget):
         ll.addWidget(agg_sum_grp)
 
         ll.addStretch()
-        root.addWidget(ls)
 
         # ── Canvas ────────────────────────────────────────────────────────
         cw = QWidget(); cl = QVBoxLayout(cw); cl.setContentsMargins(0, 0, 0, 0)
@@ -7879,14 +7913,13 @@ class CellRegionAnalysisTab(QWidget):
         # Mouse-hover handler: shows the cell ID + per-cell stats under the cursor
         self._canvas.mpl_connect("motion_notify_event", self._on_hover)
         # Initialised by _refresh_overlay / _populate_cell_stats
-        self._cell_labeled     = None
-        self._cell_stats_rows  = {}
+        self._cell_labeled      = None
+        self._cell_stats_rows   = {}
+        self._selected_agg_id   = None   # aggregate highlighted by table click
+        self._agg_labeled_cache = None   # agg_labeled array for highlight
         cl.addWidget(self._nav); cl.addWidget(self._canvas, stretch=1)
-        root.addWidget(cw, stretch=1)
-
         # ── Right panel: tabbed tables + aggregate summary at bottom ──────────
         rw = QWidget()
-        rw.setMinimumWidth(360)
         rl = QVBoxLayout(rw)
         rl.setContentsMargins(0, 0, 0, 0)
         rl.setSpacing(4)
@@ -7997,10 +8030,40 @@ class CellRegionAnalysisTab(QWidget):
         _cell_l.addWidget(self._cell_stats_table)
         _data_tabs.addTab(_cell_w, "Per-Cell Stats")
 
+        # Tab 3 — Per-Aggregate Statistics (click a row to highlight on canvas)
+        _agg_w = QWidget(); _agg_l = QVBoxLayout(_agg_w)
+        _agg_l.setContentsMargins(2, 2, 2, 2)
+        _agg_info = QLabel("Click a row to highlight that aggregate on the canvas.")
+        _agg_info.setStyleSheet("color:#8080c0;font-size:10px;")
+        _agg_l.addWidget(_agg_info)
+        self._agg_stats_table = QTableWidget()
+        self._agg_stats_table.setStyleSheet(
+            "QTableWidget{background:#0a0a14;color:#c0c0e0;font-size:12px;}"
+            "QHeaderView::section{background:#14142a;color:#8080c0;font-size:11px;padding:3px;}")
+        self._agg_stats_table.setColumnCount(4)
+        self._agg_stats_table.setHorizontalHeaderLabels(
+            ["Agg ID", "Area px²", "Cell", "Region"])
+        self._agg_stats_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self._agg_stats_table.setSortingEnabled(True)
+        self._agg_stats_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self._agg_stats_table.setAlternatingRowColors(True)
+        self._agg_stats_table.setToolTip(
+            "Per-aggregate statistics.\nClick a row to highlight that aggregate in the canvas.")
+        self._agg_stats_table.itemSelectionChanged.connect(self._on_agg_selected)
+        _agg_l.addWidget(self._agg_stats_table, stretch=1)
+        _data_tabs.addTab(_agg_w, "Per-Aggregate Stats")
 
         rl.addWidget(_data_tabs, stretch=1)
 
-        root.addWidget(rw)
+        _region_split = QSplitter(Qt.Horizontal)
+        _region_split.addWidget(ls)
+        _region_split.addWidget(cw)
+        _region_split.addWidget(rw)
+        _region_split.setStretchFactor(0, 0)   # left panel
+        _region_split.setStretchFactor(1, 1)   # canvas
+        _region_split.setStretchFactor(2, 0)   # right panel
+        _region_split.setSizes([310, 700, 380])  # default proportions
+        root.addWidget(_region_split)
 
         # ── Connections ───────────────────────────────────────────────────
         self._run_btn.clicked.connect(self._run)
@@ -8344,6 +8407,23 @@ class CellRegionAnalysisTab(QWidget):
             except Exception as _age:
                 print(f"[aggregate-overlay] skipped: {_age}")
 
+        # ── Selected-aggregate highlight (bright cyan glow) ──────────────
+        _sel_agg = getattr(self, "_selected_agg_id", None)
+        _agg_lbl = getattr(self, "_agg_labeled_cache", None)
+        if _sel_agg is not None and _agg_lbl is not None:
+            try:
+                _amask = (_agg_lbl == _sel_agg)
+                if _amask.any():
+                    from scipy.ndimage import binary_dilation as _bda
+                    _glow  = _bda(_amask, iterations=3)
+                    _Ha, _Wa = _agg_lbl.shape
+                    _asel_rgba = np.zeros((_Ha, _Wa, 4), dtype=np.float32)
+                    _asel_rgba[_glow]  = (0.0, 1.0, 1.0, 0.35)   # outer glow
+                    _asel_rgba[_amask] = (1.0, 1.0, 1.0, 1.00)   # core: white
+                    ax.imshow(_asel_rgba, interpolation="nearest", origin="upper")
+            except Exception as _ahe:
+                print(f"[agg-highlight] skipped: {_ahe}")
+
         ax.set_title("Cell Region Analysis",
                      color="#a0a0d0", fontsize=9, pad=4)
         ax.axis("off")
@@ -8372,6 +8452,23 @@ class CellRegionAnalysisTab(QWidget):
                 pass
         else:
             self._hover_lbl.setText(f"Cell {cid}: (no stats yet)")
+
+    def _on_agg_selected(self):
+        """Table-selection handler: highlight the chosen aggregate on the canvas."""
+        rows = self._agg_stats_table.selectionModel().selectedRows()
+        if not rows:
+            self._selected_agg_id = None
+            self._refresh_overlay()
+            return
+        # Read the Agg ID from column 0 of the selected row
+        item = self._agg_stats_table.item(rows[0].row(), 0)
+        if item is None:
+            return
+        try:
+            self._selected_agg_id = int(item.text())
+        except ValueError:
+            self._selected_agg_id = None
+        self._refresh_overlay()
 
     def _measure_signal(self):
         """Compute % signal and object count per region for selected derived channel.
@@ -8550,9 +8647,10 @@ class CellRegionAnalysisTab(QWidget):
         per_cell = {int(_cid): {_rn: 0 for _rn in
                     regions + [f"_area_{_rn}" for _rn in regions]}
                     for _cid in all_cell_ids}
-        _n_total_agg = len(agg_props)
-        _n_assigned  = 0
-        _n_dropped   = 0
+        _n_total_agg    = len(agg_props)
+        _n_assigned     = 0
+        _n_dropped      = 0
+        _agg_assignments = {}   # {agg_label: (cell_id, region_name)}
 
         if has_agg and own_map is not None:
             for _prop in agg_props:
@@ -8583,6 +8681,7 @@ class CellRegionAnalysisTab(QWidget):
                     _reg_name = "cytoplasm"
                 per_cell[_owner][_reg_name]              += 1
                 per_cell[_owner][f"_area_{_reg_name}"]   += _prop["area"]
+                _agg_assignments[_prop["label"]] = (_owner, _reg_name)
                 _n_assigned += 1
 
         print(f"[cell-stats] aggregates={_n_total_agg}  assigned={_n_assigned}  "
@@ -8643,6 +8742,37 @@ class CellRegionAnalysisTab(QWidget):
 
         self._cell_stats_table.setSortingEnabled(True)
         self._export_csv_btn.setEnabled(len(all_cell_ids) > 0)
+
+        # ── Per-aggregate table ──────────────────────────────────────────
+        self._agg_labeled_cache = agg_labeled   # cache for highlight overlay
+        self._selected_agg_id   = None          # clear any previous selection
+        self._agg_stats_table.setSortingEnabled(False)
+        self._agg_stats_table.setRowCount(len(agg_props))
+        _reg_display = {"nucleus": "Nucleus", "perinuclear": "Perinuclear",
+                        "cytoplasm": "Cytoplasm", "periphery": "Periphery"}
+        for _ai, _ap in enumerate(agg_props):
+            _albl = _ap["label"]
+            _aarea = _ap["area"]
+            _acell, _areg = _agg_assignments.get(_albl, (0, "extracellular"))
+            _row_data = [
+                str(_albl),
+                str(_aarea),
+                str(_acell) if _acell else "—",
+                _reg_display.get(_areg, _areg.capitalize()),
+            ]
+            for _ac, _av in enumerate(_row_data):
+                _it = QTableWidgetItem(_av)
+                _it.setFlags(_it.flags() & ~Qt.ItemIsEditable)
+                # store numeric label for sorting
+                if _ac in (0, 1):
+                    try: _it.setData(Qt.UserRole, int(_av))
+                    except ValueError: pass
+                # colour extracellular rows dimmer
+                if _acell == 0:
+                    _it.setForeground(
+                        __import__("PyQt5.QtGui", fromlist=["QColor"]).QColor("#606080"))
+                self._agg_stats_table.setItem(_ai, _ac, _it)
+        self._agg_stats_table.setSortingEnabled(True)
 
         # ── Update aggregate summary label (structured, actionable) ────────
         import statistics as _stats
@@ -9064,7 +9194,7 @@ class ColocalizationTab(QWidget):
         root.setSpacing(4)
 
         ls, _, ll = make_scroll_widget()
-        ls.setFixedWidth(315)
+        ls.setMinimumWidth(160)
 
         # ----
         csel = section("Channel Selection  (by biological label / derived channel)")
@@ -9222,7 +9352,6 @@ class ColocalizationTab(QWidget):
         ll.addWidget(self._prog)
         ll.addWidget(self._stat_lbl)
         ll.addStretch()
-        root.addWidget(ls)
 
         cw = QWidget()
         cl = QVBoxLayout(cw)
@@ -9237,10 +9366,7 @@ class ColocalizationTab(QWidget):
         cl.addWidget(self._canvas1, stretch=1)
         cl.addWidget(self._nav2)
         cl.addWidget(self._canvas2, stretch=1)
-        root.addWidget(cw, stretch=1)
-
         rw = QWidget()
-        rw.setFixedWidth(305)
         rl = QVBoxLayout(rw)
         og = section("Output")
         ol = QVBoxLayout(og)
@@ -9248,7 +9374,15 @@ class ColocalizationTab(QWidget):
         self._out_txt.setReadOnly(True)
         ol.addWidget(self._out_txt)
         rl.addWidget(og, stretch=1)
-        root.addWidget(rw)
+        _coloc_split = QSplitter(Qt.Horizontal)
+        _coloc_split.addWidget(ls)
+        _coloc_split.addWidget(cw)
+        _coloc_split.addWidget(rw)
+        _coloc_split.setStretchFactor(0, 0)
+        _coloc_split.setStretchFactor(1, 1)
+        _coloc_split.setStretchFactor(2, 0)
+        _coloc_split.setSizes([315, 700, 305])
+        root.addWidget(_coloc_split)
 
         self._ana_btn.clicked.connect(self._run_full_analysis)
         self._save_btn.clicked.connect(self._save_coloc_report)
